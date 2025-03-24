@@ -82,7 +82,7 @@ HOOK="$(ob64 "$HOOK")"
     s="$(stat -c %s "$fn")"
     [ $s -gt 0 ] || err "Empty file: $fn"
 }
-DATA="$(base64 -w0 "$fn")" || exit
+DATA="$(openssl base64 <"$fn")" || exit
 
 [ "$fn" = "-" ] && fn="/dev/stdout"
 
@@ -104,10 +104,9 @@ echo -n "';"
 [ -n "$_P" ] && echo -n "_P='$(ob64 "$(echo "$_P"|openssl base64 2>/dev/null)")' "
 ## Add my hook to decrypt/execute binary
 # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
-# echo "$(obbell 'eval "')\$($(obbell 'echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
 echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
 # Add the encrypted binary (from memory)
-base64 -d<<<"$DATA" |gzip|openssl enc -aes-256-cbc -pbkdf2 -nosalt -k "$PASSWORD"
+openssl base64 -d<<<"$DATA" |gzip|openssl enc %%SSL_OPTS%% "$PASSWORD" 2>/dev/null
 } > "$fn"
 
 [ -n "$s" ] && {

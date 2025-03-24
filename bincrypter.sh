@@ -72,7 +72,7 @@ PASSWORD="${PASSWORD:-$_P}"
 # [ -z "$_P" ] && echo -e >&2 "Using ${CDY}${PASSWORD}${CN}"
 [ -z "$PASSWORD" ] && err "No PASSWORD=<password> provided and failed to generate one."
 
-HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC12ICIkMSIgPi9kZXYvbnVsbHx8ZXJyICJDb21tYW5kIG5vdCBmb3VuZDogJDEiO30KYyBvcGVuc3NsCmMgcGVybApjIGd1bnppcApQQVNTV09SRD0iJHtQQVNTV09SRDotJChlY2hvICIkX1AifHN0cmluZ3MgLW4xfG9wZW5zc2wgYmFzZTY0IC1kKX0iClsgLXogIiRQQVNTV09SRCIgXSAmJiByZWFkIC1yIC1wICJFbnRlciBwYXNzd29yZDogIiBQQVNTV09SRApwcmc9InRhaWwgLW4rMyAnJDAnfG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtcGJrZGYyIC1ub3NhbHQgLWsgJyRQQVNTV09SRCd8Z3VuemlwIgpleGVjIHBlcmwgJy1lJF5GPTI1NTtmb3IoMzE5LDI3OSl7KCRmPXN5c2NhbGwkXywkIiwwKT4wJiZsYXN0fTtvcGVuKCRvLCI+Jj0iLiRmKTtvcGVuKCRpLCInIiRwcmciJ3wiKTtwcmludCRvKDwkaT4pO2Nsb3NlKCRpKTtleGVjeyIvcHJvYy8kJC9mZC8kZiJ9IiciJHswOi1weXRob24zfSInIixAQVJHVicgLS0gIiRAIgo='
+HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC12ICIkMSIgPi9kZXYvbnVsbHx8ZXJyICJDb21tYW5kIG5vdCBmb3VuZDogJDEiO30KYyBvcGVuc3NsCmMgcGVybApjIGd1bnppcApQQVNTV09SRD0iJHtQQVNTV09SRDotJChlY2hvICIkX1AifHN0cmluZ3MgLW4xfG9wZW5zc2wgYmFzZTY0IC1kKX0iClsgLXogIiRQQVNTV09SRCIgXSAmJiByZWFkIC1yIC1wICJFbnRlciBwYXNzd29yZDogIiBQQVNTV09SRApwcmc9InRhaWwgLW4rMyAnJDAnfG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgJyRQQVNTV09SRCcgMj4vZGV2L251bGx8Z3VuemlwIgpleGVjIHBlcmwgJy1lJF5GPTI1NTtmb3IoMzE5LDI3OSwzODUsMzE0KXsoJGY9c3lzY2FsbCRfLCQiLDApPjAmJmxhc3R9O29wZW4oJG8sIj4mPSIuJGYpO29wZW4oJGksIiciJHByZyInfCIpO3ByaW50JG8oPCRpPik7Y2xvc2UoJGkpO2V4ZWN7Ii9wcm9jLyQkL2ZkLyRmIn0iJyIkezA6LXB5dGhvbjN9IiciLEBBUkdWJyAtLSAiJEAiCg=='
 HOOK="$(ob64 "$HOOK")"
 
 # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
@@ -80,7 +80,7 @@ HOOK="$(ob64 "$HOOK")"
     s="$(stat -c %s "$fn")"
     [ $s -gt 0 ] || err "Empty file: $fn"
 }
-DATA="$(base64 -w0 "$fn")" || exit
+DATA="$(openssl base64 <"$fn")" || exit
 
 [ "$fn" = "-" ] && fn="/dev/stdout"
 
@@ -102,10 +102,9 @@ echo -n "';"
 [ -n "$_P" ] && echo -n "_P='$(ob64 "$(echo "$_P"|openssl base64 2>/dev/null)")' "
 ## Add my hook to decrypt/execute binary
 # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
-# echo "$(obbell 'eval "')\$($(obbell 'echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
 echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
 # Add the encrypted binary (from memory)
-base64 -d<<<"$DATA" |gzip|openssl enc -aes-256-cbc -pbkdf2 -nosalt -k "$PASSWORD"
+openssl base64 -d<<<"$DATA" |gzip|openssl enc -aes-256-cbc -md sha256 -nosalt -k "$PASSWORD" 2>/dev/null
 } > "$fn"
 
 [ -n "$s" ] && {
