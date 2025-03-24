@@ -60,7 +60,7 @@ fn="-"
 [ $# -eq 0 ] && err "Usage: ${CDC}$0 <file> [<password>]${CN} ${CF}#[use - for stdin]${CN}"
 fn="$1"
 [ -n "$2" ] && PASSWORD="$2"
-[ -f "$fn" ] || err "File not found: $fn"
+[ "$fn" != "-" ] && [ ! -f "$fn" ] && err "File not found: $fn"
 
 # Auto-generate password if not provided
 [ -z "$PASSWORD" ] && {
@@ -76,9 +76,13 @@ HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC
 HOOK="$(ob64 "$HOOK")"
 
 # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
-s="$(stat -c %s "$fn")"
-[ $s -gt 0 ] || err "Empty file: $fn"
+[ "$fn" != "-" ] && { 
+    s="$(stat -c %s "$fn")"
+    [ $s -gt 0 ] || err "Empty file: $fn"
+}
 DATA="$(base64 -w0 "$fn")" || exit
+
+[ "$fn" = "-" ] && fn="/dev/stdout"
 
 # Create the encrypted binary: /bin/sh + Decrypt-Hook + Encrypted binary
 { 
@@ -104,6 +108,8 @@ echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl 
 base64 -d<<<"$DATA" |gzip|openssl enc -aes-256-cbc -pbkdf2 -nosalt -k "$PASSWORD"
 } > "$fn"
 
-c="$(stat -c %s "$fn")"
-echo -e >&2 "${CDY}Compressed:${CN} ${CDM}$s ${CF}-->${CN}${CDM} $c ${CN}[${CDG}$((c * 100 / s))%${CN}]"
-echo -e >&2 "${CDY}>>> ${CDG}$(ls -al "$fn")${CN}"
+[ -n "$s" ] && {
+    c="$(stat -c %s "$fn")"
+    echo -e >&2 "${CDY}Compressed:${CN} ${CDM}$s ${CF}-->${CN}${CDM} $c ${CN}[${CDG}$((c * 100 / s))%${CN}]"
+    echo -e >&2 "${CDY}>>> ${CDG}$(ls -al "$fn")${CN}"
+}
