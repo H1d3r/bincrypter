@@ -14,6 +14,7 @@ A shell script for Linux that obfuscates + encrypts + packs any binary.
 Download:
 ```shell
 curl -SsfL https://github.com/hackerschoice/bincrypter/raw/refs/heads/main/bincrypter.sh -o bincrypter.sh
+chmod +x bincrypter.sh
 ```
 
 Usage:
