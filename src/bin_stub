@@ -59,8 +59,8 @@ obbell() {
 
 command -v openssl >/dev/null || err "openssl is required"
 fn="-"
-[ $# -eq 0 ] && err "Usage: ${CDC}$0 <file> [<password>]${CN} ${CF}#[use - for stdin]${CN}"
-fn="$1"
+[ -t 0 ] && [ $# -eq 0 ] && err "Usage: ${CDC}$0 <file> [<password>]${CN} ${CF}#[use - for stdin]${CN}"
+[ -t 0 ] && fn="$1"
 [ -n "$2" ] && PASSWORD="$2"
 [ "$fn" != "-" ] && [ ! -f "$fn" ] && err "File not found: $fn"
 
