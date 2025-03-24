@@ -1,0 +1,11 @@
+# This hook is base64 encoded and slurped into bincrypter.sh
+# Bincrypter.sh eventually adds it to the encrypted binary (header).
+err() { echo >&2 "ERROR: $*"; exit 255;}
+c() { command -v "$1" >/dev/null||err "Command not found: $1";}
+c openssl
+c perl
+c gunzip
+PASSWORD="${PASSWORD:-$(echo "$_P"|strings -n1|openssl base64 -d)}"
+[ -z "$PASSWORD" ] && read -r -p "Enter password: " PASSWORD
+prg="tail -n+3 '$0'|openssl enc -d -aes-256-cbc -pbkdf2 -nosalt -k '$PASSWORD'|gunzip"
+exec perl '-euse Fcntl;for(319,279){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i);fcntl($o,F_SETFD,0);exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
