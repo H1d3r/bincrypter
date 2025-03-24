@@ -44,5 +44,8 @@ chmod +x gsnc
 PASSWORD="foobar" GS_ARGS="-ilD -s ChangeMe" ./gsnc
 ```
 
+---
+Other great work:  
+https://github.com/guitmz/ezuri
 
 
