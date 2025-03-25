@@ -10,6 +10,8 @@
 - Living off the Land: Only needs /bin/sh + perl + openssl
 - Architecture agnostic: Works on x86_64, aarch64, arm6, mips, ...
 
+![exmaple](https://github.com/user-attachments/assets/c8eff8e4-f879-4017-9015-6422e03dd6ac)
+
 Download:
 ```shell
 curl -SsfL https://github.com/hackerschoice/bincrypter/raw/refs/heads/main/bincrypter.sh -o bincrypter.sh
