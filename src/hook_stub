@@ -5,7 +5,7 @@ c() { command -v "$1" >/dev/null||err "Command not found: $1";}
 c openssl
 c perl
 c gunzip
-PASSWORD="${PASSWORD:-$(echo "$_P"|strings -n1|openssl base64 -d)}"
+PASSWORD="${PASSWORD:-$(echo "$P"|strings -n1|openssl base64 -d)}"
 [ -z "$PASSWORD" ] && read -r -p "Enter password: " PASSWORD
 # prg="tail -n+3 '$0'|openssl enc -d -aes-256-cbc -pbkdf2 -nosalt -k '$PASSWORD'|gunzip"
 prg="tail -n+3 '$0'|openssl enc -d %%SSL_OPTS%% '$PASSWORD' 2>/dev/null|gunzip"

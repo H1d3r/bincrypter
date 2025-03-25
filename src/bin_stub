@@ -25,14 +25,16 @@ ob64() {
     local x
     local s
 
+    # Always start with non-printable character
+    s=0
     while [ ${#h} -gt 0 ]; do
         i=$((1 + RANDOM % 4))
-        s=$((1 + RANDOM % 3))
         str+=${h:0:$s}
         [ ${#x} -le $i ] && x=$(dd bs=128 count="${count:-1}" if=/dev/urandom 2>/dev/null | tr -d '[:print:]\000\n')
         str+=${x:0:$i}
         x=${x:$i}
         h=${h:$s}
+        s=$((1 + RANDOM % 3))
     done
     echo "$str"
 }
@@ -66,11 +68,11 @@ fn="-"
 
 # Auto-generate password if not provided
 [ -z "$PASSWORD" ] && {
-    _P="$(head -c 32 < /dev/urandom | base64 | tr -dc '[:alnum:]' | head -c 16)"
+    P="$(head -c 32 < /dev/urandom | base64 | tr -dc '[:alnum:]' | head -c 16)"
     # echo -e >&2 "${CDY}NOTE:${CN} ${CDM}The password is stored in ${CDC}$fn${CDM} and can easily be recovered.
-# Use ${CDC}$0 $fn $_P${CDM} otherwise.${CN}"
+# Use ${CDC}$0 $fn $P${CDM} otherwise.${CN}"
 }
-PASSWORD="${PASSWORD:-$_P}"
+PASSWORD="${PASSWORD:-$P}"
 [ -z "$PASSWORD" ] && err "No PASSWORD=<password> provided and failed to generate one."
 
 HOOK='%%HOOK%%'
@@ -91,16 +93,19 @@ DATA="$(openssl base64 <"$fn")" || exit
 # Add some binary data after shebang, including \0 (sh reads past \0 but does not process. \0\n count as new line).
 # dd count="${count:-1}" bs=$((1024 + RANDOM % 1024)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'"
 # echo "" # Newline
-# => Unfortunately some systems link /bin/sh -> bash and bash checks that the first line is binary free.
+# => Unfortunately some systems link /bin/sh -> bash.
+# 1. Bash checks that the first line is binary free.
+# 2. and no \0 in the first 80 bytes (including the #!/bin/sh)
 printf '#!/bin/sh\n'
 
 # Add dummy variable containing garbage (for obfuscation) (2nd line)
 echo -n "_='" 
+dd count="${count:-1}" bs=66 if=/dev/urandom 2>/dev/null| tr -d "[:print:]\000\n'" 
 dd count="${count:-1}" bs=$((1024 + RANDOM % 4096)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'" 
-echo -n "';"
+printf "' \x00" # echo -n "';"
 # far far far after garbage
 ## Add Password (obfuscated) to script (dangerous: readable)
-[ -n "$_P" ] && echo -n "_P='$(ob64 "$(echo "$_P"|openssl base64 2>/dev/null)")' "
+[ -n "$P" ] && echo -n "P='$(ob64 "$(echo "$P"|openssl base64 2>/dev/null)")' "
 ## Add my hook to decrypt/execute binary
 # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
 echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""

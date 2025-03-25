@@ -23,14 +23,16 @@ ob64() {
     local x
     local s
 
+    # Always start with non-printable character
+    s=0
     while [ ${#h} -gt 0 ]; do
         i=$((1 + RANDOM % 4))
-        s=$((1 + RANDOM % 3))
         str+=${h:0:$s}
         [ ${#x} -le $i ] && x=$(dd bs=128 count="${count:-1}" if=/dev/urandom 2>/dev/null | tr -d '[:print:]\000\n')
         str+=${x:0:$i}
         x=${x:$i}
         h=${h:$s}
+        s=$((1 + RANDOM % 3))
     done
     echo "$str"
 }
@@ -64,14 +66,14 @@ fn="-"
 
 # Auto-generate password if not provided
 [ -z "$PASSWORD" ] && {
-    _P="$(head -c 32 < /dev/urandom | base64 | tr -dc '[:alnum:]' | head -c 16)"
+    P="$(head -c 32 < /dev/urandom | base64 | tr -dc '[:alnum:]' | head -c 16)"
     # echo -e >&2 "${CDY}NOTE:${CN} ${CDM}The password is stored in ${CDC}$fn${CDM} and can easily be recovered.
-# Use ${CDC}$0 $fn $_P${CDM} otherwise.${CN}"
+# Use ${CDC}$0 $fn $P${CDM} otherwise.${CN}"
 }
-PASSWORD="${PASSWORD:-$_P}"
+PASSWORD="${PASSWORD:-$P}"
 [ -z "$PASSWORD" ] && err "No PASSWORD=<password> provided and failed to generate one."
 
-HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC12ICIkMSIgPi9kZXYvbnVsbHx8ZXJyICJDb21tYW5kIG5vdCBmb3VuZDogJDEiO30KYyBvcGVuc3NsCmMgcGVybApjIGd1bnppcApQQVNTV09SRD0iJHtQQVNTV09SRDotJChlY2hvICIkX1AifHN0cmluZ3MgLW4xfG9wZW5zc2wgYmFzZTY0IC1kKX0iClsgLXogIiRQQVNTV09SRCIgXSAmJiByZWFkIC1yIC1wICJFbnRlciBwYXNzd29yZDogIiBQQVNTV09SRApwcmc9InRhaWwgLW4rMyAnJDAnfG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgJyRQQVNTV09SRCcgMj4vZGV2L251bGx8Z3VuemlwIgpleGVjIHBlcmwgJy1lJF5GPTI1NTtmb3IoMzE5LDI3OSwzODUsMzE0KXsoJGY9c3lzY2FsbCRfLCQiLDApPjAmJmxhc3R9O29wZW4oJG8sIj4mPSIuJGYpO29wZW4oJGksIiciJHByZyInfCIpO3ByaW50JG8oPCRpPik7Y2xvc2UoJGkpO2V4ZWN7Ii9wcm9jLyQkL2ZkLyRmIn0iJyIkezA6LXB5dGhvbjN9IiciLEBBUkdWJyAtLSAiJEAiCg=='
+HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC12ICIkMSIgPi9kZXYvbnVsbHx8ZXJyICJDb21tYW5kIG5vdCBmb3VuZDogJDEiO30KYyBvcGVuc3NsCmMgcGVybApjIGd1bnppcApQQVNTV09SRD0iJHtQQVNTV09SRDotJChlY2hvICIkUCJ8c3RyaW5ncyAtbjF8b3BlbnNzbCBiYXNlNjQgLWQpfSIKWyAteiAiJFBBU1NXT1JEIiBdICYmIHJlYWQgLXIgLXAgIkVudGVyIHBhc3N3b3JkOiAiIFBBU1NXT1JECnByZz0idGFpbCAtbiszICckMCd8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAnJFBBU1NXT1JEJyAyPi9kZXYvbnVsbHxndW56aXAiCmV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSwzMTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSk7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIK'
 HOOK="$(ob64 "$HOOK")"
 
 # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
@@ -89,16 +91,19 @@ DATA="$(openssl base64 <"$fn")" || exit
 # Add some binary data after shebang, including \0 (sh reads past \0 but does not process. \0\n count as new line).
 # dd count="${count:-1}" bs=$((1024 + RANDOM % 1024)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'"
 # echo "" # Newline
-# => Unfortunately some systems link /bin/sh -> bash and bash checks that the first line is binary free.
+# => Unfortunately some systems link /bin/sh -> bash.
+# 1. Bash checks that the first line is binary free.
+# 2. and no \0 in the first 80 bytes (including the #!/bin/sh)
 printf '#!/bin/sh\n'
 
 # Add dummy variable containing garbage (for obfuscation) (2nd line)
 echo -n "_='" 
+dd count="${count:-1}" bs=66 if=/dev/urandom 2>/dev/null| tr -d "[:print:]\000\n'" 
 dd count="${count:-1}" bs=$((1024 + RANDOM % 4096)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'" 
-echo -n "';"
+printf "' \x00" # echo -n "';"
 # far far far after garbage
 ## Add Password (obfuscated) to script (dangerous: readable)
-[ -n "$_P" ] && echo -n "_P='$(ob64 "$(echo "$_P"|openssl base64 2>/dev/null)")' "
+[ -n "$P" ] && echo -n "P='$(ob64 "$(echo "$P"|openssl base64 2>/dev/null)")' "
 ## Add my hook to decrypt/execute binary
 # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
 echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
