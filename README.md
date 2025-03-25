@@ -20,21 +20,21 @@ Example:
 ```shell
 cp /usr/bin/id id
 ./bincrypter.sh id
-Compressed: 68552 --> 24176 [35%]
+# Compressed: 68552 --> 24176 [35%]
 
 ./id
-uid=0(root) gid=0(root) groups=0(root)
+# uid=0(root) gid=0(root) groups=0(root)
 ```
 
 Set a custom PASSWORD (optionally):
 ```shell
 cp /usr/bin/id id
 ./bincrypter.sh id foobar
-Compressed: 68552 --> 23860 [34%]
+# Compressed: 68552 --> 23860 [34%]
 
 ./id
-Enter Password: foobar
-uid=0(root) gid=0(root) groups=0(root)
+# Enter Password: foobar
+# uid=0(root) gid=0(root) groups=0(root)
 ```
 
 Real world example (install a backdoor with a unique signature):
@@ -46,6 +46,8 @@ PASSWORD="foobar" GS_ARGS="-ilD -s ChangeMe" ./gsnc
 
 ---
 Other great work:  
-https://github.com/guitmz/ezuri
+https://github.com/guitmz/ezuri  
+https://github.com/upx/upx  
+
 
 
