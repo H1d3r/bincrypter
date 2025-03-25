@@ -5,8 +5,9 @@ c() { command -v "$1" >/dev/null||err "Command not found: $1";}
 c openssl
 c perl
 c gunzip
-PASSWORD="${PASSWORD:-$(echo "$P"|strings -n1|openssl base64 -d)}"
+# Ask perl to keep \n because openssl base64 -d expects it
+PASSWORD="${PASSWORD:-$(echo "$P"|perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -d)}"
 [ -z "$PASSWORD" ] && read -r -p "Enter password: " PASSWORD
 # prg="tail -n+3 '$0'|openssl enc -d -aes-256-cbc -pbkdf2 -nosalt -k '$PASSWORD'|gunzip"
-prg="tail -n+3 '$0'|openssl enc -d %%SSL_OPTS%% '$PASSWORD' 2>/dev/null|gunzip"
+prg="perl -e '<>;<>;print(<>)'<'$0'|openssl enc -d %%SSL_OPTS%% '$PASSWORD' 2>/dev/null|gunzip"
 exec perl '-e$^F=255;for(319,279,385,314){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i);exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
