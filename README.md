@@ -1,5 +1,5 @@
 
-## A Linux Binary Runtime Crypter - as a shell script (LotL)
+## A Linux Binary Runtime Crypter - in BASH!
 
 - Obfuscates & encrypts any ELF binary _or_ `#!`-script
 - AV/EDR death: Morphing + different signature every time
