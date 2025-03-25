@@ -16,6 +16,7 @@ CF="\033[2m"     # faint
 
 err() { echo -e >&2 "${CDR}ERROR${CN}: $*"; exit 255; }
 # Obfuscate a string with non-printable characters at random intervals.
+# Input must not contain \ (or sh gets confused)
 ob64() {
     local i
     local h="$1"
@@ -28,7 +29,7 @@ ob64() {
     while [ ${#h} -gt 0 ]; do
         i=$((1 + RANDOM % 4))
         str+=${h:0:$s}
-        [ ${#x} -le $i ] && x=$(dd bs=128 count="${count:-1}" if=/dev/urandom 2>/dev/null | tr -d '[:print:]\000\n')
+        [ ${#x} -le $i ] && x=$(dd bs=128 count="${count:-1}" if=/dev/urandom 2>/dev/null | tr -d '[:print:]\000\n\t')
         str+=${x:0:$i}
         x=${x:$i}
         h=${h:$s}
@@ -44,6 +45,7 @@ obbell() {
     local x
     local s
 
+    [ -n "$DEBUG" ] && { echo "$h"; return; }
     while [ ${#h} -gt 0 ]; do
         s=$((1 + RANDOM % 4))
         str+=${h:0:$s}
@@ -73,7 +75,7 @@ fn="-"
 PASSWORD="${PASSWORD:-$P}"
 [ -z "$PASSWORD" ] && err "No PASSWORD=<password> provided and failed to generate one."
 
-HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC12ICIkMSIgPi9kZXYvbnVsbHx8ZXJyICJDb21tYW5kIG5vdCBmb3VuZDogJDEiO30KYyBvcGVuc3NsCmMgcGVybApjIGd1bnppcApQQVNTV09SRD0iJHtQQVNTV09SRDotJChlY2hvICIkUCJ8cGVybCAtcGUgJ3MvW15bOnByaW50Ol1cbl0vL2c7J3xvcGVuc3NsIGJhc2U2NCAtZCl9IgpbIC16ICIkUEFTU1dPUkQiIF0gJiYgcmVhZCAtciAtcCAiRW50ZXIgcGFzc3dvcmQ6ICIgUEFTU1dPUkQKcHJnPSJwZXJsIC1lICc8Pjs8PjtwcmludCg8PiknPCckMCd8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAnJFBBU1NXT1JEJyAyPi9kZXYvbnVsbHxndW56aXAiCmV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSwzMTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSk7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIK'
+HOOK='ZXJyKCkgeyBlY2hvID4mMiAiRVJST1I6ICQqIjsgZXhpdCAyNTU7fQpjKCkgeyBjb21tYW5kIC12ICIkMSIgPi9kZXYvbnVsbHx8ZXJyICJDb21tYW5kIG5vdCBmb3VuZDogJDEiO30KYyBvcGVuc3NsCmMgcGVybApjIGd1bnppcApQQVNTV09SRD0iJHtQQVNTV09SRDotJChlY2hvICIkUCJ8TEFORz1DIHBlcmwgLXBlICdzL1teWzpwcmludDpdXG5dLy9nOyd8b3BlbnNzbCBiYXNlNjQgLWQpfSIKWyAteiAiJFBBU1NXT1JEIiBdICYmIHJlYWQgLXIgLXAgIkVudGVyIHBhc3N3b3JkOiAiIFBBU1NXT1JECnByZz0icGVybCAtZSAnPD47PD47cHJpbnQoPD4pJzwnJDAnfG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgJyRQQVNTV09SRCcgMj4vZGV2L251bGx8Z3VuemlwIgpMQU5HPUMgZXhlYyBwZXJsICctZSReRj0yNTU7Zm9yKDMxOSwyNzksMzg1LDMxNCl7KCRmPXN5c2NhbGwkXywkIiwwKT4wJiZsYXN0fTtvcGVuKCRvLCI+Jj0iLiRmKTtvcGVuKCRpLCInIiRwcmciJ3wiKTtwcmludCRvKDwkaT4pO2Nsb3NlKCRpKTskRU5WeyJMQU5HIn09IiciJExBTkciJyI7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIK'
 HOOK="$(ob64 "$HOOK")"
 
 # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
@@ -103,10 +105,13 @@ dd count="${count:-1}" bs=$((1024 + RANDOM % 4096)) if=/dev/urandom 2>/dev/null|
 printf "' \x00" # echo -n "';"
 # far far far after garbage
 ## Add Password (obfuscated) to script (dangerous: readable)
-[ -n "$P" ] && echo -n "P='$(ob64 "$(echo "$P"|openssl base64 2>/dev/null)")' "
+[ -n "$P" ] && echo -n "P=$(ob64 "$(echo "$P"|openssl base64 2>/dev/null)") "
 ## Add my hook to decrypt/execute binary
 # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
-echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
+# echo "eval \"\$(echo $HOOK|{ strings -n1;echo;}|openssl base64 -d)\""
+# Note: openssl expects \n at the end. Perl filters it. Add it with echo.
+echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK|{ LANG=C $(obbell "perl -pe \"s/[^[:print:]]//g\";echo");}$(obbell "|openssl base64 -d)")\""
+# echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK|LANG=C $(obbell "perl -pe \"s/[^[:print:]]//g\"|openssl base64 -d"))\""
 # Add the encrypted binary (from memory)
 openssl base64 -d<<<"$DATA" |gzip|openssl enc -aes-256-cbc -md sha256 -nosalt -k "$PASSWORD" 2>/dev/null
 } > "$fn"

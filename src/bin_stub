@@ -18,6 +18,7 @@ CF="\033[2m"     # faint
 
 err() { echo -e >&2 "${CDR}ERROR${CN}: $*"; exit 255; }
 # Obfuscate a string with non-printable characters at random intervals.
+# Input must not contain \ (or sh gets confused)
 ob64() {
     local i
     local h="$1"
@@ -30,7 +31,7 @@ ob64() {
     while [ ${#h} -gt 0 ]; do
         i=$((1 + RANDOM % 4))
         str+=${h:0:$s}
-        [ ${#x} -le $i ] && x=$(dd bs=128 count="${count:-1}" if=/dev/urandom 2>/dev/null | tr -d '[:print:]\000\n')
+        [ ${#x} -le $i ] && x=$(dd bs=128 count="${count:-1}" if=/dev/urandom 2>/dev/null | tr -d '[:print:]\000\n\t')
         str+=${x:0:$i}
         x=${x:$i}
         h=${h:$s}
@@ -46,6 +47,7 @@ obbell() {
     local x
     local s
 
+    [ -n "$DEBUG" ] && { echo "$h"; return; }
     while [ ${#h} -gt 0 ]; do
         s=$((1 + RANDOM % 4))
         str+=${h:0:$s}
@@ -105,10 +107,13 @@ dd count="${count:-1}" bs=$((1024 + RANDOM % 4096)) if=/dev/urandom 2>/dev/null|
 printf "' \x00" # echo -n "';"
 # far far far after garbage
 ## Add Password (obfuscated) to script (dangerous: readable)
-[ -n "$P" ] && echo -n "P='$(ob64 "$(echo "$P"|openssl base64 2>/dev/null)")' "
+[ -n "$P" ] && echo -n "P=$(ob64 "$(echo "$P"|openssl base64 2>/dev/null)") "
 ## Add my hook to decrypt/execute binary
 # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
-echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK$(obbell '|strings -n1|openssl base64 -d'))\""
+# echo "eval \"\$(echo $HOOK|{ strings -n1;echo;}|openssl base64 -d)\""
+# Note: openssl expects \n at the end. Perl filters it. Add it with echo.
+echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK|{ LANG=C $(obbell "perl -pe \"s/[^[:print:]]//g\";echo");}$(obbell "|openssl base64 -d)")\""
+# echo "$(obbell 'eval "')\$$(obbell '(echo ')$HOOK|LANG=C $(obbell "perl -pe \"s/[^[:print:]]//g\"|openssl base64 -d"))\""
 # Add the encrypted binary (from memory)
 openssl base64 -d<<<"$DATA" |gzip|openssl enc %%SSL_OPTS%% "$PASSWORD" 2>/dev/null
 } > "$fn"

@@ -6,8 +6,9 @@ c openssl
 c perl
 c gunzip
 # Ask perl to keep \n because openssl base64 -d expects it
-PASSWORD="${PASSWORD:-$(echo "$P"|perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -d)}"
+PASSWORD="${PASSWORD:-$(echo "$P"|LANG=C perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -d)}"
 [ -z "$PASSWORD" ] && read -r -p "Enter password: " PASSWORD
 # prg="tail -n+3 '$0'|openssl enc -d -aes-256-cbc -pbkdf2 -nosalt -k '$PASSWORD'|gunzip"
 prg="perl -e '<>;<>;print(<>)'<'$0'|openssl enc -d %%SSL_OPTS%% '$PASSWORD' 2>/dev/null|gunzip"
-exec perl '-e$^F=255;for(319,279,385,314){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i);exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
+# Note: The 2nd LANG is the original and _not_ set to C.
+LANG=C exec perl '-e$^F=255;for(319,279,385,314){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i);$ENV{"LANG"}="'"$LANG"'";exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
