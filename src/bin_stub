@@ -67,11 +67,10 @@ fn="-"
 # Auto-generate password if not provided
 [ -z "$PASSWORD" ] && {
     _P="$(head -c 32 < /dev/urandom | base64 | tr -dc '[:alnum:]' | head -c 16)"
-    echo -e >&2 "${CDY}NOTE:${CN} ${CDM}The password is stored in ${CDC}$fn${CDM} and can easily be recovered.
-Use ${CDC}$0 $fn $_P${CDM} otherwise.${CN}"
+    # echo -e >&2 "${CDY}NOTE:${CN} ${CDM}The password is stored in ${CDC}$fn${CDM} and can easily be recovered.
+# Use ${CDC}$0 $fn $_P${CDM} otherwise.${CN}"
 }
 PASSWORD="${PASSWORD:-$_P}"
-# [ -z "$_P" ] && echo -e >&2 "Using ${CDY}${PASSWORD}${CN}"
 [ -z "$PASSWORD" ] && err "No PASSWORD=<password> provided and failed to generate one."
 
 HOOK='%%HOOK%%'
@@ -88,13 +87,13 @@ DATA="$(openssl base64 <"$fn")" || exit
 
 # Create the encrypted binary: /bin/sh + Decrypt-Hook + Encrypted binary
 { 
-# printf '#!/bin/bash'
-
-printf '#!/bin/sh\0#'
+# printf '#!/bin/sh\0#'
 # Add some binary data after shebang, including \0 (sh reads past \0 but does not process. \0\n count as new line).
-dd count="${count:-1}" bs=$((1024 + RANDOM % 1024)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'"
+# dd count="${count:-1}" bs=$((1024 + RANDOM % 1024)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'"
+# echo "" # Newline
+# => Unfortunately some systems link /bin/sh -> bash and bash checks that the first line is binary free.
+printf '#!/bin/sh\n'
 
-echo "" # Newline
 # Add dummy variable containing garbage (for obfuscation) (2nd line)
 echo -n "_='" 
 dd count="${count:-1}" bs=$((1024 + RANDOM % 4096)) if=/dev/urandom 2>/dev/null| tr -d "[:print:]\n'" 
@@ -112,5 +111,5 @@ openssl base64 -d<<<"$DATA" |gzip|openssl enc %%SSL_OPTS%% "$PASSWORD" 2>/dev/nu
 [ -n "$s" ] && {
     c="$(stat -c %s "$fn")"
     echo -e >&2 "${CDY}Compressed:${CN} ${CDM}$s ${CF}-->${CN}${CDM} $c ${CN}[${CDG}$((c * 100 / s))%${CN}]"
-    echo -e >&2 "${CDY}>>> ${CDG}$(ls -al "$fn")${CN}"
+    # echo -e >&2 "${CDY}>>> ${CDG}$(ls -al "$fn")${CN}"
 }
