@@ -1,12 +1,12 @@
 
-## A shell script for Linux that obfuscates + encrypts + packs any binary.
+## A Linux Binary Runtime Crypter - as a shell script (LotL)
 
-- Obfuscates any ELF binary or script
+- Obfuscates & encrypts any ELF binary _or_ `#!`-script
 - AV/EDR death: Morphing + different signature every time
 - 100% in-memory. No temporary files.
 - Not soiling the filesystem
-- Can double or triple encrypt the same binary
-- Resulting binary is heavily obfuscated (`string` shows garbage)
+- Can double or triple encrypt the same binary (or itself)
+- Resulting binary is heavily obfuscated (`string` only shows garbage)
 - Living off the Land: Only needs /bin/sh + perl + openssl
 - Architecture agnostic: Works on x86_64, aarch64, arm6, mips, ...
 
