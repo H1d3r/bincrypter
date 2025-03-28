@@ -75,7 +75,7 @@ obbell() {
 command -v openssl >/dev/null || err "openssl is required"
 fn="-"
 [ -t 0 ] && [ $# -eq 0 ] && err "Usage: ${CDC}$0 <file> [<password>]${CN} ${CF}#[use - for stdin]${CN}"
-[ -t 0 ] && fn="$1"
+[ -n "$1" ] && fn="$1"
 [ -n "$2" ] && PASSWORD="$2"
 [ "$fn" != "-" ] && [ ! -f "$fn" ] && err "File not found: $fn"
 
@@ -92,7 +92,9 @@ HOOK="$(ob64 "$HOOK")"
     [ "$s" -gt 0 ] || err "Empty file: $fn"
 }
 # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
-DATA="$(openssl base64 <"$fn")" || exit
+ifn="$fn"
+[ "$fn" = "-" ] && ifn="/dev/stdin"
+DATA="$(openssl base64 <"$ifn")" || exit
 
 [ "$fn" = "-" ] && fn="/dev/stdout"
 
