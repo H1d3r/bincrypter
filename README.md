@@ -51,5 +51,11 @@ Other great work:
 https://github.com/guitmz/ezuri  
 https://github.com/upx/upx  
 
+---
+Join the fun: https://thc.org/ops  
+bsky: [@hackerschoice.bsky.social](https://bsky.app/profile/hackerschoice.bsky.social)  
+Mastodon: [@thc@infosec.exchange](https://infosec.exchange/@thc)
+
+
 
 
