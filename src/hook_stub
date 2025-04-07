@@ -1,14 +1,51 @@
 # This hook is base64 encoded and slurped into bincrypter.sh
 # Bincrypter.sh eventually adds it to the encrypted binary (header).
-err() { echo >&2 "ERROR: $*"; exit 255;}
-c() { command -v "$1" >/dev/null||err "Command not found: $1";}
+
+c() { command -v "$1" >/dev/null|| { echo >&2 "ERROR: Command not found: $1"; exit 255;};}
 c openssl
 c perl
 c gunzip
+_PASSWORD="${BCP:-$PASSWORD}"
 # Ask perl to keep \n because openssl base64 -d expects it
-PASSWORD="${PASSWORD:-$(echo "$P"|LANG=C perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -d)}"
-[ -z "$PASSWORD" ] && read -r -p "Enter password: " PASSWORD
-# prg="tail -n+3 '$0'|openssl enc -d -aes-256-cbc -pbkdf2 -nosalt -k '$PASSWORD'|gunzip"
-prg="perl -e '<>;<>;print(<>)'<'$0'|openssl enc -d %%SSL_OPTS%% '$PASSWORD' 2>/dev/null|gunzip"
-# Note: The 2nd LANG is the original and _not_ set to C.
+[ -n "$P" ] && _PASSWORD="$(echo "$P"|LANG=C perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -A -d)"
+[ -z "$_PASSWORD" ] && {
+    # BASH + ZSH compat
+    echo -n "Enter password: "
+    read -r _PASSWORD
+}
+
+# Check if file is sourced or executed
+# - if executed then we are using /bin/sh and ZSH/BASH-version are _not_ set.
+if [ -n "$ZSH_VERSION" ]; then
+    [ "$ZSH_EVAL_CONTEXT" != "${ZSH_EVAL_CONTEXT%":file:"*}" ] && fn="$0"
+elif [ -n "$BASH_VERSION" ]; then
+    (return 0 2>/dev/null) && fn="${BASH_SOURCE[0]}"
+else
+    # Tricky bit to detect if sourced on BusyBox.
+    # - This part might be evaluated (eval()) from /bin/sh
+    # - If executed then $0 is the script name. If sourced then $0=sh
+    #   and BusyBox does not tell us which file was sourced.
+    # FIXME: could make something crazy like:
+    # eval "$(BC_OUTPUT=1 ./SCRIPTNAME)"
+    [ ! -f "$0" ] && { echo >&2 'ERROR: Shell not supported. Use Bash or Zsh instead.'; return 255; }
+fi
+
+prg="perl -e '<>;<>;print(<>)'<'${fn:-$0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_PASSWORD}' 2>/dev/null|gunzip"
+[ -n "$fn" ] && {
+    # Bourne shell does not allow 'source' or '<(':
+    # source <(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_PASSWORD" 2>/dev/null|gunzip)
+    # Alternative 1:
+    eval "$(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_PASSWORD}" 2>/dev/null|gunzip)"
+    # Alternative 2:
+    # eval "$(LANG=C perl -e 'open($i,"'"$prg"'|");print(<$i>);')"
+    unset _ _PASSWORD prg fn
+    return
+}
+
+### HERE: it's not sourced. Execute instead.
+# bourne shell exports _ by default. It contains binary garbage. Remove.
+unset _ PASSWORD BCP # do not leak into new process
+
+# Note: The 2nd LANG is the original/correct and _not_ set to C.
+# FIXME: if gunzip fails then perl will exit with 0 and not 255.
 LANG=C exec perl '-e$^F=255;for(319,279,385,4314,4354){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i);$ENV{"LANG"}="'"$LANG"'";exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
