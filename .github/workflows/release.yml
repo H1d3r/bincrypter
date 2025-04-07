@@ -6,15 +6,18 @@ on:
     paths:
       - 'src/*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version'
-        default: '1.1'
-        type: string
-        required: true
+    # inputs:
+    #   version:
+    #     description: 'Version'
+    #     default: '1.1'
+    #     type: string
+    #     required: true
 
 permissions:
   contents: write
+
+env:
+  VER: 1.1
 
 jobs:
   Source:
@@ -74,5 +77,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: bincrypter
           overwrite: true
-          tag: v${{ inputs.version }}
+          tag: v${{ env.VER }}
     
