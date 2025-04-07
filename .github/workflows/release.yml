@@ -1,0 +1,71 @@
+name: Test & Release
+on: [push]
+  branches:
+    - main
+  paths:
+    - src/*
+on: [workflow_dispatch]
+
+permissions:
+  contents: write
+
+jobs:
+  Source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: dist
+        run: |
+          src/make.sh
+          mkdir -p /opt
+          cp bincrypter.sh /opt/bincrypter
+          cp tests/run-tests.sh /opt
+          chmod +x /opt/*
+          make dist
+
+      - name: SaveCache
+        uses: actions/cache/save@v3
+        with:
+          path: /opt
+          key: releasebin
+
+  Linux-Busybox:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine
+      # options: --user root
+    steps:
+      - name: Add build dependencies
+        run: |
+          apk add --update --no-cache --no-progress bash perl openssl
+
+      - name: Get Release-bin (cache)
+        uses: actions/cache@v3
+        with:
+          path: /opt
+          key: releasebin
+
+      - name: Run Tests
+        run: |
+          cd /opt
+          PATH=$(pwd):$PATH ./run-tests.sh
+
+  release:
+    needs: [Linux-Busybox]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Release (cache)
+        uses: actions/cache@v3
+        with:
+          path: /opt
+          key: releasebin
+
+      - name: Upload dist
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /opt/bincrypter
+          overwrite: true
+          # tag: v${{ env.VER }}
+    
