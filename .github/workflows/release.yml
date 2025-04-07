@@ -22,7 +22,6 @@ jobs:
           cp bincrypter.sh /tmp/bc/bincrypter
           cp tests/run-tests.sh /tmp/bc
           chmod +x /tmp/bc/*
-          make dist
 
       - name: SaveCache
         uses: actions/cache/save@v3
