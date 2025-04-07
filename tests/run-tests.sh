@@ -35,6 +35,7 @@ echo ">>> Test: Pipe"
 cat test.sh | bincrypter >t.sh
 chmod +x t.sh
 unset BC_TEST
+ls -al test.sh t.sh
 ./t.sh
 source ./t.sh
 [ "$BC_TEST" -ne 1 ] && exit 255
