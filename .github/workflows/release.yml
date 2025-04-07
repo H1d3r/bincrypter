@@ -47,9 +47,6 @@ jobs:
 
       - name: Run Tests
         run: |
-          pwd
-          ls -al
-          cd bc
           PATH=$(pwd):$PATH ./run-tests.sh
 
   release:
