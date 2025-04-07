@@ -59,7 +59,7 @@ jobs:
       - name: Get Release-bin
         uses: actions/download-artifact@v4
         with:
-          key: releasebin
+          name: releasebin
 
       - name: Upload dist
         uses: svenstaro/upload-release-action@v2
