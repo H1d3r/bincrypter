@@ -1,13 +1,15 @@
 name: Test & Release
-# on: [push]
-#   branches:
-#     - main
-#   paths:
-#     - src/*
-on: [workflow_dispatch]
+on: [push, workflow_dispatch]
+  branches:
+    - main
+  paths:
+    - src/*
 
 permissions:
   contents: write
+
+env:
+  VER: 1.1
 
 jobs:
   Source:
@@ -67,5 +69,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: bincrypter
           overwrite: true
-          # tag: v${{ env.VER }}
+          tag: v${{ env.VER }}
     
