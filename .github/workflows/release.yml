@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: Add build dependencies
         run: |
-          apk add --update --no-cache --no-progress bash perl openssl
+          apk add --update --no-cache --no-progress bash perl openssl curl
 
       - name: Get Release-bin
         uses: actions/download-artifact@v4
@@ -65,7 +65,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: bc/bincrypter
+          file: bincrypter
           overwrite: true
           # tag: v${{ env.VER }}
     
