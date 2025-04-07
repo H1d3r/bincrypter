@@ -18,19 +18,20 @@ jobs:
       - name: dist
         run: |
           src/make.sh
-          mkdir -p /opt
-          cp bincrypter.sh /opt/bincrypter
-          cp tests/run-tests.sh /opt
-          chmod +x /opt/*
+          mkdir -p /tmp/bc
+          cp bincrypter.sh /tmp/bc/bincrypter
+          cp tests/run-tests.sh /tmp/bc
+          chmod +x /tmp/bc/*
           make dist
 
       - name: SaveCache
         uses: actions/cache/save@v3
         with:
-          path: /opt
+          path: /tmp/bc
           key: releasebin
 
   Linux-Busybox:
+    needs: [Source]
     runs-on: ubuntu-latest
     container:
       image: alpine
@@ -43,12 +44,12 @@ jobs:
       - name: Get Release-bin (cache)
         uses: actions/cache@v3
         with:
-          path: /opt
+          path: /tmp/bc
           key: releasebin
 
       - name: Run Tests
         run: |
-          cd /opt
+          cd /tmp/bc
           PATH=$(pwd):$PATH ./run-tests.sh
 
   release:
@@ -58,14 +59,14 @@ jobs:
       - name: Get Release (cache)
         uses: actions/cache@v3
         with:
-          path: /opt
+          path: /tmp/bc
           key: releasebin
 
       - name: Upload dist
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /opt/bincrypter
+          file: /tmp/bc/bincrypter
           overwrite: true
           # tag: v${{ env.VER }}
     
