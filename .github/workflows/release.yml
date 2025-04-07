@@ -23,11 +23,11 @@ jobs:
           cp tests/run-tests.sh bc
           chmod +x bc/*
 
-      - name: SaveCache
-        uses: actions/cache/save@v4
+      - name: Save
+        uses: actions/upload-artifact@v4
         with:
+          name: releasebin
           path: bc
-          key: releasebin
 
   Linux-Busybox:
     needs: [Source]
@@ -40,11 +40,10 @@ jobs:
         run: |
           apk add --update --no-cache --no-progress bash perl openssl
 
-      - name: Get Release-bin (cache)
-        uses: actions/cache@v4
+      - name: Get Release-bin
+        uses: actions/download-artifact@v4
         with:
-          path: bc
-          key: releasebin
+          name: releasebin
 
       - name: Run Tests
         run: |
@@ -55,17 +54,16 @@ jobs:
     needs: [Linux-Busybox]
     runs-on: ubuntu-latest
     steps:
-      - name: Get Release (cache)
-        uses: actions/cache@v4
+      - name: Get Release-bin
+        uses: actions/download-artifact@v4
         with:
-          path: /tmp/bc
           key: releasebin
 
       - name: Upload dist
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: /tmp/bc/bincrypter
+          file: bc/bincrypter
           overwrite: true
           # tag: v${{ env.VER }}
     
