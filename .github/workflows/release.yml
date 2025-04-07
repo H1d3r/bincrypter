@@ -1,12 +1,10 @@
 name: Test & Release
-# on:
-#   push:
-#     branches:
-#       - main
-#     paths:
-#       - src/*
-
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - src/bin_sub
   workflow_dispatch:
     inputs:
       version:
