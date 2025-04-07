@@ -1,9 +1,9 @@
 name: Test & Release
-on: [push]
-  branches:
-    - main
-  paths:
-    - src/*
+# on: [push]
+#   branches:
+#     - main
+#   paths:
+#     - src/*
 on: [workflow_dispatch]
 
 permissions:
