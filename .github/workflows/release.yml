@@ -18,15 +18,15 @@ jobs:
       - name: dist
         run: |
           src/make.sh
-          mkdir -p /tmp/bc
-          cp bincrypter.sh /tmp/bc/bincrypter
-          cp tests/run-tests.sh /tmp/bc
-          chmod +x /tmp/bc/*
+          mkdir -p bc
+          cp bincrypter.sh bc/bincrypter
+          cp tests/run-tests.sh bc
+          chmod +x bc/*
 
       - name: SaveCache
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
-          path: /tmp/bc
+          path: bc
           key: releasebin
 
   Linux-Busybox:
@@ -41,14 +41,14 @@ jobs:
           apk add --update --no-cache --no-progress bash perl openssl
 
       - name: Get Release-bin (cache)
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: /tmp/bc
+          path: bc
           key: releasebin
 
       - name: Run Tests
         run: |
-          cd /tmp/bc
+          cd bc
           PATH=$(pwd):$PATH ./run-tests.sh
 
   release:
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get Release (cache)
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/bc
           key: releasebin
