@@ -18,12 +18,14 @@ echo ">>> Test: File"
 cp test.sh t.sh
 chmod +x t.sh
 bincrypter t.sh
-unset BC_TEST
 ./t.sh
 set +e
 ./t.sh 244
 [ $? -ne 244 ] && { echo "Error code is not 244"; exit 255; }
 set -e
+
+echo ">>> Test: Source"
+unset BC_TEST
 source ./t.sh
 [ "$BC_TEST" -ne 1 ] && exit 255
 
@@ -31,7 +33,6 @@ echo ">>> Test: Pipe"
 cat test.sh | bincrypter >t.sh
 chmod +x t.sh
 unset BC_TEST
-ls -al test.sh t.sh
 ./t.sh
 source ./t.sh
 [ "$BC_TEST" -ne 1 ] && exit 255
