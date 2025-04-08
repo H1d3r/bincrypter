@@ -39,7 +39,7 @@ jobs:
           name: releasebin
           path: bc
 
-  Shells:
+  Tests:
     needs: [Source]
     runs-on: ubuntu-latest
     # container:
@@ -86,8 +86,8 @@ jobs:
           sudo ln -sf $(command -v dash) /bin/sh
           PATH=$(pwd):$PATH ./run-tests.sh
 
-  release:
-    needs: [Linux-Busybox]
+  Release:
+    needs: [Tests]
     runs-on: ubuntu-latest
     steps:
       - name: Get Release-bin
