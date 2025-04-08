@@ -50,4 +50,4 @@ unset _ PASSWORD S # do not leak into new process
 
 # Note: The 2nd LANG is the original/correct and _not_ set to C.
 # FIXME: if gunzip fails then perl will exit with 0 and not 255.
-LANG=C exec perl '-e$^F=255;for(319,279,385,4314,4354){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i);$ENV{"LANG"}="'"$LANG"'";exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
+LANG=C exec perl '-e$^F=255;for(319,279,385,4314,4354){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i)||exit($?/256);$ENV{"LANG"}="'"$LANG"'";exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
