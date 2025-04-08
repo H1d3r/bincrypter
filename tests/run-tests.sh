@@ -15,8 +15,7 @@ EOF
 chmod +x test.sh
 
 echo ">>> Test: File"
-cp test.sh t.sh
-chmod +x t.sh
+cp test.sh t.sh; chmod +x t.sh
 bincrypter t.sh
 ./t.sh
 set +e
@@ -29,6 +28,16 @@ unset BC_TEST
 source ./t.sh
 [ "$BC_TEST" -ne 1 ] && exit 255
 
+echo ">>> Test: 100 times"
+for i in {1..100}; do
+    cp test.sh t.sh; chmod +x t.sh
+    bincrypter t.sh
+    ./t.sh
+    unset BC_TEST
+    source ./t.sh
+    [ "$BC_TEST" -ne 1 ] && exit 255
+done
+
 echo ">>> Test: Pipe"
 cat test.sh | bincrypter >t.sh
 chmod +x t.sh
@@ -37,15 +46,13 @@ unset BC_TEST
 source ./t.sh
 [ "$BC_TEST" -ne 1 ] && exit 255
 
-echo ">>> Test: Double"
-cp test.sh t.sh
-chmod +x t.sh
+echo ">>> Test: Double (file)"
+cp test.sh t.sh; chmod +x t.sh
 bincrypter t.sh 
 bincrypter t.sh 
-ls -al
 ./t.sh
 
-echo ">>> Test: Triple Pipe"
+echo ">>> Test: Triple (pipe)"
 cat test.sh | bincrypter | bincrypter | bincrypter >t.sh
 chmod +x t.sh
 ./t.sh
@@ -58,10 +65,8 @@ echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 
 echo ">>> Test: Set password (by command line)"
 cp test.sh t.sh; chmod +x t.sh
-ls -al 
 bincrypter t.sh "${TEST_PASSWORD}"
 umask
-ls -al 
 PASSWORD="${TEST_PASSWORD}" ./t.sh
 echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 

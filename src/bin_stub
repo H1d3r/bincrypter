@@ -133,7 +133,8 @@ bincrypter() {
         # Add dummy variable containing garbage (for obfuscation) (2nd line)
         echo -n "_='" 
         _bc_xdd 66 </dev/urandom | _bc_xtr '' "[:print:]\0\n'"
-        _bc_xdd "$((1024 + RANDOM % 4096))" </dev/urandom| _bc_xtr '' "[:print:]\n'"
+        # \0\0 confuses some shells.
+        _bc_xdd "$((1024 + RANDOM % 4096))" </dev/urandom| _bc_xtr '' "[:print:]\0{2,}\n'"
         # _bc_xprintf "' \x00" # WORKS ON BASH ONLY
         _bc_xprintf "';" # works on BASH + ZSH
         # far far far after garbage
