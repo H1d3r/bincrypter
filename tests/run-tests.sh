@@ -1,10 +1,6 @@
 #! /usr/bin/env bash
 
-# echo ">>> Test: Triple Pipe"
-# cat test.sh | bincrypter | bincrypter | bincrypter >t.sh
-# chmod +x t.sh
-# ./t.sh
-# exit
+TEST_PASSWORD="1234567890"
 
 set -e
 command -v bincrypter >/dev/null
@@ -51,5 +47,21 @@ echo ">>> Test: Triple Pipe"
 cat test.sh | bincrypter | bincrypter | bincrypter >t.sh
 chmod +x t.sh
 ./t.sh
-:
 
+echo ">>> Test: Set password (by environment variable)"
+cp test.sh t.sh; chmod +x t.sh
+PASSWORD="${TEST_PASSWORD}" ./bincrypter t.sh
+PASSWORD="${TEST_PASSWORD}" ./t.sh
+echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
+
+echo ">>> Test: Set password (by command line)"
+cp test.sh t.sh; chmod +x t.sh
+bincrypter t.sh "${TEST_PASSWORD}"
+PASSWORD="${TEST_PASSWORD}" ./t.sh
+echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
+
+echo ">>> Test: Password by env (nested) & Double pipe"
+PASSWORD="${TEST_PASSWORD}" ./bincrypter <test.sh | bincrypter - "${TEST_PASSWORD}" >t.sh
+BCP="${TEST_PASSWORD}" ./t.sh
+
+:

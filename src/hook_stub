@@ -1,16 +1,18 @@
 # This hook is base64 encoded and slurped into bincrypter.sh
 # Bincrypter.sh eventually adds it to the encrypted binary (header).
 
-c() { command -v "$1" >/dev/null|| { echo >&2 "ERROR: Command not found: $1"; exit 255;};}
-c openssl
-c perl
-c gunzip
+for x in openssl perl gunzip; do
+    command -v "$x" >/dev/null || { echo >&2 "ERROR: Command not found: $x"; return 255; }
+done
 _PASSWORD="${BCP:-$PASSWORD}"
 # Ask perl to keep \n because openssl base64 -d expects it
-[ -n "$P" ] && _PASSWORD="$(echo "$P"|LANG=C perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -A -d)"
+[ -n "$P" ] && {
+    _PASSWORD="$(echo "$P"|LANG=C perl -pe 's/[^[:print:]\n]//g;'|openssl base64 -A -d)"
+    unset P
+}
 [ -z "$_PASSWORD" ] && {
     # BASH + ZSH compat
-    echo -n "Enter password: "
+    echo >&2 -n "Enter password: "
     read -r _PASSWORD
 }
 
@@ -33,18 +35,18 @@ fi
 prg="perl -e '<>;<>;print(<>)'<'${fn:-$0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_PASSWORD}' 2>/dev/null|gunzip"
 [ -n "$fn" ] && {
     # Bourne shell does not allow 'source' or '<(':
-    # source <(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_PASSWORD" 2>/dev/null|gunzip)
+    # source <(unset _ _PASSWORD S prg fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_PASSWORD" 2>/dev/null|gunzip)
     # Alternative 1:
-    eval "$(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_PASSWORD}" 2>/dev/null|gunzip)"
+    eval "unset _ _PASSWORD S prg fn;$(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_PASSWORD}" 2>/dev/null|gunzip)"
     # Alternative 2:
-    # eval "$(LANG=C perl -e 'open($i,"'"$prg"'|");print(<$i>);')"
-    unset _ _PASSWORD prg fn
+    # eval "unset _ _PASSWORD S prg fn;$(LANG=C perl -e 'open($i,"'"$prg"'|");print(<$i>);')"
     return
 }
 
 ### HERE: it's not sourced. Execute instead.
 # bourne shell exports _ by default. It contains binary garbage. Remove.
-unset _ PASSWORD BCP # do not leak into new process
+unset _ PASSWORD S # do not leak into new process
+# Leak BCP on purpose to allow nested-decryption.
 
 # Note: The 2nd LANG is the original/correct and _not_ set to C.
 # FIXME: if gunzip fails then perl will exit with 0 and not 255.

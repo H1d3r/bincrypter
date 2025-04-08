@@ -1,6 +1,9 @@
 #! /usr/bin/env bash
 
-#X DO NOT USE THIS SCRIPT. IT IS A STUB. USE BINCRYPTER.SH INSTEAD.
+#X DO NOT USE THIS SCRIPT. IT IS A STUB. USE BINCRYPTER INSTEAD.
+#X
+#X curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter
+#X chmod +x bincrypter
 #X
 # set PASSWORD=<password> to use a specific password. This password will be asked
 # for at execution unless provided by PASSWORD=<password> environment variable.
@@ -100,7 +103,7 @@ bincrypter() {
 
     ## Add SALT to script
     str+="S='$S'"$'\n'"$(echo "$HOOK"|openssl base64 -A -d)"
-    [ -n "$DEBUG" ] && echo "DEBUG: code='$str'"
+    [ -n "$DEBUG" ] && echo >&2 "DEBUG: code='$str'"
 
     ## Encode & obfuscate the HOOK
     HOOK="$(echo "$str" | openssl base64 -A)"
