@@ -31,7 +31,6 @@ jobs:
           mkdir -p bc
           cp bincrypter.sh bc/bincrypter
           cp tests/run-tests.sh bc
-          chmod +x bc/*
 
       - name: Save
         uses: actions/upload-artifact@v4

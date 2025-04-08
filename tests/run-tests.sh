@@ -56,7 +56,10 @@ echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 
 echo ">>> Test: Set password (by command line)"
 cp test.sh t.sh; chmod +x t.sh
+ls -al 
 bincrypter t.sh "${TEST_PASSWORD}"
+umask
+ls -al 
 PASSWORD="${TEST_PASSWORD}" ./t.sh
 echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 
