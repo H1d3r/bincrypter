@@ -42,6 +42,7 @@ cp test.sh t.sh
 chmod +x t.sh
 bincrypter t.sh 
 bincrypter t.sh 
+ls -al
 ./t.sh
 
 echo ">>> Test: Triple Pipe"
