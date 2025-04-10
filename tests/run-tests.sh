@@ -71,6 +71,12 @@ echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 
 echo ">>> Test: Password by env (nested) & Double pipe"
 PASSWORD="${TEST_PASSWORD}" ./bincrypter <test.sh | bincrypter - "${TEST_PASSWORD}" >t.sh
-BCP="${TEST_PASSWORD}" ./t.sh
+BC_PASSWORD="${TEST_PASSWORD}" ./t.sh
 
+
+STOP HERE:
+- write test case with two separate nested passwords
+- write test case with two identical passwords
+- write test case for BC_LOCK
+- write _bc_id() function (in perl??), with self test and execting if BC_LOCK is not a number.
 :
