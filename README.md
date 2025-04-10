@@ -10,6 +10,7 @@
 - Resulting binary is heavily obfuscated (`string` only shows garbage)
 - Living off the Land (LotL): Only needs `/bin/sh` + `perl` + `openssl`
 - Architecture agnostic: Works on x86_64, aarch64, arm6, mips, ...
+- *Lock* a binary to a target system and make it fail to run anywhere else.
 
 ![exmaple](https://github.com/user-attachments/assets/c8eff8e4-f879-4017-9015-6422e03dd6ac)
 
@@ -17,6 +18,7 @@ Download:
 ```shell
 curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter
 chmod +x bincrypter
+./bincrypter -h
 ```
 
 Example:
