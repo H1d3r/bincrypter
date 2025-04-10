@@ -152,6 +152,7 @@ _bincrypter() {
 
     # Auto-generate password if not provided
     _PASSWORD="${2:-${BC_PASSWORD:-$PASSWORD}}"
+    [ -n "$_BC_LOCK" ] && [ -n "$_PASSWORD" ] && { echo -e >&2 "${CDR}WARN${CN}: ${CDY}PASSWORD${CN} is ignored when using ${CDY}BC_LOCK${CN}."; unset _PASSWORD; }
     [ -z "$_PASSWORD" ] && P="$(DEBUG='' _bc_xdd 32 </dev/urandom | openssl base64 -A | _bc_xtr '^' '[:alnum:]' | DEBUG='' _bc_xdd 16)"
     _P="${_PASSWORD:-$P}"
     [ -z "$_P" ] && _bc_err "No ${CDC}PASSWORD=<password>${CN} provided and failed to generate one."
@@ -242,8 +243,7 @@ _bincrypter() {
     _bc_usage() {
         local bc="${0##*/}"
         echo -en >&2 "\
-${CM}Encrypt a binary or script.${CDM}
-The password is chosen at random unless specified by the user.
+${CM}Encrypt or obfuscate a binary or script.${CDM}
 
 ${CDG}Usage:${CN}
 ${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
@@ -256,26 +256,25 @@ ${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
 
 ${CDG}Environment variables (optional):${CN}
 ${CDY}PASSWORD=${CN}     Password to encrypt/decrypt.
-${CDY}BC_PASSWORD=${CN}  Password to encrypt/decrypt (exported).
+${CDY}BC_PASSWORD=${CN}  Password to encrypt/decrypt (exported to callee).
 ${CDY}BC_QUIET=${CN}     See -q
 ${CDY}BC_LOCK=${CN}      See -l
 
 ${CDG}Examples:${CN}
-Encrypt myfile.sh with a random password:
+Obfuscate myfile.sh:
   ${CDC}${bc} ${CDY}myfile.sh${CN}
+
+Obfuscate /usr/bin/id (via pipe):
+  ${CDC}cat ${CDY}/usr/bin/id${CN} | ${CDC}${bc}${CN} >${CDY}id.enc${CN}
+
+Obfuscate & Lock to system. Execute 'id; ls -al' if copied:
+  ${CDY}BC_LOCK='id; ls -al' ${CDC}${bc} ${CDY}myfile.sh${CN}
 
 Encrypt myfile.sh with password 'mysecret':
   ${CDC}${bc} ${CDY}myfile.sh ${CDY}mysecret${CN}
 
 Encrypt by passing the password as environment variable:
   ${CDY}PASSWORD=mysecret ${CDC}${bc} ${CDY}myfile.sh${CN}
-
-Encrypt /usr/bin/id with a random password:
-  ${CDC}cat ${CDY}/usr/bin/id${CN} | ${CDC}${bc}${CN} >${CDY}id.enc${CN}
-
-Lock to system. Execute 'id; ls -al' if copied:
-  ${CDY}BC_LOCK='id; ls -al' ${CDC}${bc} ${CDY}myfile.sh${CN}
-
 "
         exit 0
     }
