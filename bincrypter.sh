@@ -136,7 +136,8 @@ _bincrypter() {
         [ -z "$UID" ] && UID="$(id -u 2>/dev/null)"
         [ -f "/etc/machine-id" ] && _bcl_verify "$(cat "/etc/machine-id")" && return
         command -v dmidecode >/dev/null && _bcl_verify "$(dmidecode -t 1 2>/dev/null | LANG=C perl -ne '/UUID/ && print')" && return
-        _bcl_verify "$(fdisk -l 2>/dev/null | grep -i identifier 2>/dev/null | head -n1 2>/dev/null)" && return
+        _bcl_verify "$({ ip l sh dev "$(ip route show match 1.1.1.1 | sed -E 's/.*dev ([^ ]*) .*/\1/')" | grep -o 'ether [^ ]*';} 2>/dev/null)" && return
+        _bcl_verify "$({ fdisk -l | grep -i identifier | head -n1;} 2>/dev/null)" && return
     }
 
     command -v openssl >/dev/null || _bc_err "openssl is required"
