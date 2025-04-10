@@ -40,15 +40,15 @@ else
         read -t 60 -r _P
     }
 fi
-prg="perl -e '<>;<>;print(<>)'<'${fn:-$0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_P}' 2>/dev/null|gunzip"
+prg="perl -e '<>;<>;print(<>)'<'${fn:-$0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_P}' 2>/dev/null|perl -e 'read(STDIN,\\\$_, $R);print(<>)'|gunzip"
 [ -n "$fn" ] && {
     # Bourne shell does not allow 'source' or '<(':
-    # source <(unset _ _P S prg fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_P" 2>/dev/null|gunzip)
+    # source <(unset _ _P P S R prg fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_P" 2>/dev/null|gunzip)
     # Alternative 1:
     unset -f _bcl_get _bcl_verify _bcl_verify_dec
-    eval "unset BCL BCV _ _P P S prg fn;$(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|gunzip)"
+    eval "unset BCL BCV _ _P P S R prg fn;$(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|perl -e "read(STDIN,\$_, $R);print(<>)"|gunzip)"
     # Alternative 2:
-    # eval "unset _ _P S prg fn;$(LANG=C perl -e 'open($i,"'"$prg"'|");print(<$i>);')"
+    # eval "unset _ _P P S R prg fn;$(LANG=C perl -e 'open($i,"'"$prg"'|");print(<$i>);')"
     return
 }
 

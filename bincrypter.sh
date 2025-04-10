@@ -19,7 +19,6 @@ CF="\033[2m"     # faint
 # %%BEGIN_BC_FUNC%%
 _bincrypter() {
     local str ifn fn s c DATA P _P S HOOK _PASSWORD
-    # local DEBUG=1
     local USE_PERL=1
     local _BC_QUIET="${_OPT_BC_QUIET:-$BC_QUIET}"
     local _BC_LOCK="${_OPT_BC_LOCK:-$BC_LOCK}"
@@ -35,7 +34,17 @@ _bincrypter() {
         _bc_xprintf() { printf "$@"; }
     fi
 
-    _bc_err() { echo -e >&2 "${CDR}ERROR${CN}: $*"; exit 255; }
+    _bc_err() { 
+        # Be opportunistic: Try to obfuscate but if that fails for any reason then copy data
+        # without obfuscation.
+        # It is more important to write the binary even if obfuscation fails.
+        # Consider a system where there is no 'openssl' or 'perl' but the install
+        # script does:
+        # curl -fL https://foo.com/script | bincrypter -l >script
+        [ "$fn" = "-" ] && cat # Pass through
+        echo -e >&2 "${CDR}ERROR${CN}: $*"
+        exit 255
+    }
     # Obfuscate a string with non-printable characters at random intervals.
     # Input must not contain \ (or sh gets confused)
     _bc_ob64() {
@@ -140,11 +149,14 @@ _bincrypter() {
         _bcl_verify "$({ fdisk -l | grep -i identifier | head -n1;} 2>/dev/null)" && return
     }
 
-    command -v openssl >/dev/null || _bc_err "openssl is required"
-    fn="-"
     [ -t 0 ] && [ $# -eq 0 ] && _bc_err "Usage: ${CDC}$0 <file> [<password>]${CN} ${CF}#[use - for stdin]${CN}"
-    [ -n "$1" ] && fn="$1"
+    fn="-"
+    [ -n "$1" ] && fn="$1" # $1 might be '-'
     [ "$fn" != "-" ] && [ ! -f "$fn" ] && _bc_err "File not found: $fn"
+
+    command -v openssl >/dev/null || _bc_err "openssl is required"
+    command -v perl >/dev/null || _bc_err "perl is required"
+    [ ! -c "/dev/urandom" ] && _bc_err "/dev/urandom is required"
 
     # Auto-generate password if not provided
     _PASSWORD="${2:-${BC_PASSWORD:-$PASSWORD}}"
@@ -158,7 +170,7 @@ _bincrypter() {
     S="$(DEBUG='' _bc_xdd 32 </dev/urandom | openssl base64 -A | _bc_xtr '^' '[:alnum:]' | DEBUG='' _bc_xdd 16)"
 
     # base64 encoded decrypter
-    HOOK='Zm9yIHggaW4gb3BlbnNzbCBwZXJsIGd1bnppcDsgZG8KICAgIGNvbW1hbmQgLXYgIiR4IiA+L2Rldi9udWxsIHx8IHsgZWNobyA+JjIgIkVSUk9SOiBDb21tYW5kIG5vdCBmb3VuZDogJHgiOyByZXR1cm4gMjU1OyB9CmRvbmUKaWYgWyAtbiAiJFpTSF9WRVJTSU9OIiBdOyB0aGVuCiAgICBbICIkWlNIX0VWQUxfQ09OVEVYVCIgIT0gIiR7WlNIX0VWQUxfQ09OVEVYVCUiOmZpbGU6Iip9IiBdICYmIGZuPSIkMCIKZWxpZiBbIC1uICIkQkFTSF9WRVJTSU9OIiBdOyB0aGVuCiAgICAocmV0dXJuIDAgMj4vZGV2L251bGwpICYmIGZuPSIke0JBU0hfU09VUkNFWzBdfSIKZWxzZQogICAgWyAhIC1mICIkMCIgXSAmJiB7IGVjaG8gPiYyICdFUlJPUjogU2hlbGwgbm90IHN1cHBvcnRlZC4gVXNlIEJhc2ggb3IgWnNoIGluc3RlYWQuJzsgcmV0dXJuIDI1NTsgfQpmaQpfUD0iJHtCQ19QQVNTV09SRDotJFBBU1NXT1JEfSIKdW5zZXQgXyBQQVNTV09SRCAKaWYgWyAtbiAiJFAiIF07IHRoZW4KICAgIGlmIFsgLW4gIiRCQ1YiIF0gJiYgWyAtbiAiJEJDTCIgXTsgdGhlbgogICAgICAgIF9iY2xfZ2VuX3AgIiRQIiB8fCByZXR1cm4KICAgIGVsc2UKICAgICAgICBfUD0iJChlY2hvICIkUCJ8b3BlbnNzbCBiYXNlNjQgLUEgLWQpIgogICAgZmkKZWxzZQogICAgWyAteiAiJF9QIiBdICYmIHsKICAgICAgICBlY2hvID4mMiAtbiAiRW50ZXIgcGFzc3dvcmQ6ICIKICAgICAgICByZWFkIC10IDYwIC1yIF9QCiAgICB9CmZpCnByZz0icGVybCAtZSAnPD47PD47cHJpbnQoPD4pJzwnJHtmbjotJDB9J3xvcGVuc3NsIGVuYyAtZCAtYWVzLTI1Ni1jYmMgLW1kIHNoYTI1NiAtbm9zYWx0IC1rICcke1N9LSR7X1B9JyAyPi9kZXYvbnVsbHxndW56aXAiClsgLW4gIiRmbiIgXSAmJiB7CiAgICB1bnNldCAtZiBfYmNsX2dldCBfYmNsX3ZlcmlmeSBfYmNsX3ZlcmlmeV9kZWMKICAgIGV2YWwgInVuc2V0IEJDTCBCQ1YgXyBfUCBQIFMgcHJnIGZuOyQoTEFORz1DIHBlcmwgLWUgJzw+Ozw+O3ByaW50KDw+KSc8IiR7Zm59InxvcGVuc3NsIGVuYyAtZCAtYWVzLTI1Ni1jYmMgLW1kIHNoYTI1NiAtbm9zYWx0IC1rICIke1N9LSR7X1B9IiAyPi9kZXYvbnVsbHxndW56aXApIgogICAgcmV0dXJuCn0KTEFORz1DIGV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSw0MzE0LDQzNTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSl8fGV4aXQoJD8vMjU2KTskRU5WeyJMQU5HIn09IiciJExBTkciJyI7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIK'
+    HOOK='Zm9yIHggaW4gb3BlbnNzbCBwZXJsIGd1bnppcDsgZG8KICAgIGNvbW1hbmQgLXYgIiR4IiA+L2Rldi9udWxsIHx8IHsgZWNobyA+JjIgIkVSUk9SOiBDb21tYW5kIG5vdCBmb3VuZDogJHgiOyByZXR1cm4gMjU1OyB9CmRvbmUKaWYgWyAtbiAiJFpTSF9WRVJTSU9OIiBdOyB0aGVuCiAgICBbICIkWlNIX0VWQUxfQ09OVEVYVCIgIT0gIiR7WlNIX0VWQUxfQ09OVEVYVCUiOmZpbGU6Iip9IiBdICYmIGZuPSIkMCIKZWxpZiBbIC1uICIkQkFTSF9WRVJTSU9OIiBdOyB0aGVuCiAgICAocmV0dXJuIDAgMj4vZGV2L251bGwpICYmIGZuPSIke0JBU0hfU09VUkNFWzBdfSIKZWxzZQogICAgWyAhIC1mICIkMCIgXSAmJiB7IGVjaG8gPiYyICdFUlJPUjogU2hlbGwgbm90IHN1cHBvcnRlZC4gVXNlIEJhc2ggb3IgWnNoIGluc3RlYWQuJzsgcmV0dXJuIDI1NTsgfQpmaQpfUD0iJHtCQ19QQVNTV09SRDotJFBBU1NXT1JEfSIKdW5zZXQgXyBQQVNTV09SRCAKaWYgWyAtbiAiJFAiIF07IHRoZW4KICAgIGlmIFsgLW4gIiRCQ1YiIF0gJiYgWyAtbiAiJEJDTCIgXTsgdGhlbgogICAgICAgIF9iY2xfZ2VuX3AgIiRQIiB8fCByZXR1cm4KICAgIGVsc2UKICAgICAgICBfUD0iJChlY2hvICIkUCJ8b3BlbnNzbCBiYXNlNjQgLUEgLWQpIgogICAgZmkKZWxzZQogICAgWyAteiAiJF9QIiBdICYmIHsKICAgICAgICBlY2hvID4mMiAtbiAiRW50ZXIgcGFzc3dvcmQ6ICIKICAgICAgICByZWFkIC10IDYwIC1yIF9QCiAgICB9CmZpCnByZz0icGVybCAtZSAnPD47PD47cHJpbnQoPD4pJzwnJHtmbjotJDB9J3xvcGVuc3NsIGVuYyAtZCAtYWVzLTI1Ni1jYmMgLW1kIHNoYTI1NiAtbm9zYWx0IC1rICcke1N9LSR7X1B9JyAyPi9kZXYvbnVsbHxwZXJsIC1lICdyZWFkKFNURElOLFxcXCRfLCAkUik7cHJpbnQoPD4pJ3xndW56aXAiClsgLW4gIiRmbiIgXSAmJiB7CiAgICB1bnNldCAtZiBfYmNsX2dldCBfYmNsX3ZlcmlmeSBfYmNsX3ZlcmlmeV9kZWMKICAgIGV2YWwgInVuc2V0IEJDTCBCQ1YgXyBfUCBQIFMgUiBwcmcgZm47JChMQU5HPUMgcGVybCAtZSAnPD47PD47cHJpbnQoPD4pJzwiJHtmbn0ifG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgIiR7U30tJHtfUH0iIDI+L2Rldi9udWxsfHBlcmwgLWUgInJlYWQoU1RESU4sXCRfLCAkUik7cHJpbnQoPD4pInxndW56aXApIgogICAgcmV0dXJuCn0KTEFORz1DIGV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSw0MzE0LDQzNTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSl8fGV4aXQoJD8vMjU2KTskRU5WeyJMQU5HIn09IiciJExBTkciJyI7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIK'
 
     # _P - used with openssl below
     #  P - stored in P=$P
@@ -177,9 +189,23 @@ _bincrypter() {
     }
 
     ## Add SALT to script
-    str+="S='$S'"$'\n'"$(echo "$HOOK"|openssl base64 -A -d)"
-    [ -n "$DEBUG" ] && { echo -en >&2 "DEBUG: ===code===\n${CDM}${CF}"; echo >&2 "$str"; echo -en >&2 "${CN}"; }
+    str+="S='$S'"$'\n'
 
+    # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
+    ifn="$fn"
+    [ "$fn" = "-" ] && ifn="/dev/stdin"
+    DATA="$(gzip <"$ifn" | openssl base64)" || exit
+
+    ## Add size of random padding to script (up to roughly 25% of the file size)).
+    [ "$BC_PADDING" != "0" ] && {
+        local sz="${#DATA}"
+        [ "$sz" -lt 31337 ] && sz=31337
+        local R="$(( (RANDOM * 32768 + RANDOM) % ((sz / 100) * ${BC_PADDING:-25})))"
+    }
+    str+="R=${R:-0}"$'\n'
+
+    str+="$(echo "$HOOK"|openssl base64 -A -d)"
+    [ -n "$DEBUG" ] && { echo -en >&2 "DEBUG: ===code===\n${CDM}${CF}"; echo >&2 "$str"; echo -en >&2 "${CN}"; }
     ## Encode & obfuscate the HOOK
     HOOK="$(echo "$str" | openssl base64 -A)"
     HOOK="$(_bc_ob64 "$HOOK")"
@@ -188,10 +214,6 @@ _bincrypter() {
         s="$(stat -c %s "$fn")"
         [ "$s" -gt 0 ] || _bc_err "Empty file: $fn"
     }
-    # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
-    ifn="$fn"
-    [ "$fn" = "-" ] && ifn="/dev/stdin"
-    DATA="$(openssl base64 <"$ifn")" || exit
 
     [ "$fn" = "-" ] && fn="/dev/stdout"
 
@@ -216,10 +238,8 @@ _bincrypter() {
         ## Add my hook to decrypt/execute binary
         # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
         echo "$(_bc_obbell 'eval "')\$$(_bc_obbell '(echo ')$HOOK|{ LANG=C $(_bc_obbell "perl -pe \"s/[^[:print:]]//g\"");}$(_bc_obbell "|openssl base64 -A -d)")\""
-        # Note: openssl expects \n at the end. Perl filters it. Add it with echo.
-        # echo "$(_bc_obbell 'eval "')\$$(_bc_obbell '(echo ')$HOOK|{ LANG=C $(_bc_obbell "perl -pe \"s/[^[:print:]]//g\";echo");}$(_bc_obbell "|openssl base64 -A -d)")\""
         # Add the encrypted binary (from memory)
-        openssl base64 -d<<<"$DATA" |gzip|openssl enc -aes-256-cbc -md sha256 -nosalt -k "${S}-${_P}" 2>/dev/null
+        ( DEBUG='' _bc_xdd "$R" </dev/urandom; openssl base64 -d<<<"$DATA") |openssl enc -aes-256-cbc -md sha256 -nosalt -k "${S}-${_P}" 2>/dev/null
     } > "$fn"
 
     [ -n "$s" ] && {
@@ -253,6 +273,7 @@ ${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
 ${CDG}Environment variables (optional):${CN}
 ${CDY}PASSWORD=${CN}     Password to encrypt/decrypt.
 ${CDY}BC_PASSWORD=${CN}  Password to encrypt/decrypt (exported to callee).
+${CDY}BC_PADDING=n${CN}  Add 0..n% of random data to the binary [default: 25].
 ${CDY}BC_QUIET=${CN}     See -q
 ${CDY}BC_LOCK=${CN}      See -l
 
