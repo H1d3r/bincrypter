@@ -91,7 +91,7 @@ _bincrypter() {
     _bcl_gen_p() {
         local _k
         # Binary is LOCKED to this host. Check if this is the same host to allow execution.
-        _k="$(_bcl_get)" && _P="$(echo "$1" | openssl enc -d %%SSL_OPTS%% "$_k" -a -A 2>/dev/null)"
+        [ -z "$BC_BCL_TEST_FAIL" ] && _k="$(_bcl_get)" && _P="$(echo "$1" | openssl enc -d %%SSL_OPTS%% "$_k" -a -A 2>/dev/null)"
 
         [ -n "$_P" ] && return 0
         [ -n "$fn" ] && {
@@ -170,7 +170,7 @@ _bincrypter() {
     # Fallback
     [ -z "$str" ] && {
         str="unset BCV BCL"$'\n'
-        P="$(echo "$P"|openssl base64 -A 2>/dev/null)"
+        P="$(echo "$_P"|openssl base64 -A 2>/dev/null)"
     }
 
     ## Add Password to script ($P might be encrypted if BC_LOCK is set)

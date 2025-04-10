@@ -40,7 +40,6 @@ else
         read -t 60 -r _P
     }
 fi
-[ -n "$DEBUG" ] && echo >&2 "DEBUX: _P='$_P'"
 prg="perl -e '<>;<>;print(<>)'<'${fn:-$0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_P}' 2>/dev/null|gunzip"
 [ -n "$fn" ] && {
     # Bourne shell does not allow 'source' or '<(':
