@@ -1,13 +1,14 @@
 
 ## A Linux Binary Runtime Crypter - in BASH!
 
-- Obfuscates & encrypts any ELF binary _or_ `#!`-script
+- Obfuscate & encrypt any ELF binary
+- Obfuscate & encrypt any SHELL-script
 - AV/EDR death: Morphing + different signature every time
-- 100% in-memory. No temporary files.
+- 100% in-memory. No temporary files
 - Not soiling the filesystem
-- Can double or triple encrypt the same binary (or itself)
+- Double or triple encrypt the same binary (or itself)
 - Resulting binary is heavily obfuscated (`string` only shows garbage)
-- Living off the Land: Only needs /bin/sh + perl + openssl
+- Living off the Land (LotL): Only needs `/bin/sh` + `perl` + `openssl`
 - Architecture agnostic: Works on x86_64, aarch64, arm6, mips, ...
 
 ![exmaple](https://github.com/user-attachments/assets/c8eff8e4-f879-4017-9015-6422e03dd6ac)
