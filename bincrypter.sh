@@ -34,15 +34,18 @@ _bincrypter() {
         _bc_xprintf() { printf "$@"; }
     fi
 
-    _bc_err() { 
-        # Be opportunistic: Try to obfuscate but if that fails for any reason then copy data
-        # without obfuscation.
-        # It is more important to write the binary even if obfuscation fails.
-        # Consider a system where there is no 'openssl' or 'perl' but the install
-        # script does:
-        # curl -fL https://foo.com/script | bincrypter -l >script
-        [ "$fn" = "-" ] && cat # Pass through
+    _bc_err() {
         echo -e >&2 "${CDR}ERROR${CN}: $*"
+        # Be opportunistic: Try to obfuscate but if that fails then just copy data
+        # without obfuscation (cat).
+        # Consider a system where there is no 'openssl' or 'perl' but the install
+        # pipeline looks like this:
+        # curl -fL https://foo.com/script | bincrypter -l >script
+        # => We rather have a non-obfuscated binary than NONE.
+        [ "$fn" = "-" ] && {
+            cat    # Pass through
+            exit 0 # Make pipe succeed
+        }
         exit 255
     }
     # Obfuscate a string with non-printable characters at random intervals.
@@ -149,9 +152,8 @@ _bincrypter() {
         _bcl_verify "$({ fdisk -l | grep -i identifier | head -n1;} 2>/dev/null)" && return
     }
 
-    [ -t 0 ] && [ $# -eq 0 ] && _bc_err "Usage: ${CDC}$0 <file> [<password>]${CN} ${CF}#[use - for stdin]${CN}"
     fn="-"
-    [ -n "$1" ] && fn="$1" # $1 might be '-'
+    [ -n "${1:?}" ] && fn="$1" # $1 might be '-'
     [ "$fn" != "-" ] && [ ! -f "$fn" ] && _bc_err "File not found: $fn"
 
     command -v openssl >/dev/null || _bc_err "openssl is required"
@@ -295,6 +297,7 @@ Encrypt by passing the password as environment variable:
 "
         exit 0
     }
+    [ -t 0 ] && [ $# -eq 0 ] && _bc_usage
     while getopts "hql" opt; do
         case $opt in
             h) _bc_usage ;;
