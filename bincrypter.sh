@@ -87,8 +87,8 @@ Encrypt by passing the password as environment variable:
         esac
     done
     shift $((OPTIND - 1))
-    _BC_QUIET="${_OPT_BC_QUIET:-$BC_QUIET}"
-    _BC_LOCK="${_OPT_BC_LOCK:-$BC_LOCK}"
+    _BC_QUIET="${BC_QUIET:-$_OPT_BC_QUIET}"
+    _BC_LOCK="${BC_LOCK:-$_OPT_BC_LOCK}"
 
     _bc_err() {
         echo -e >&2 "${CDR}ERROR${CN}: $*"
