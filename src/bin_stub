@@ -47,10 +47,11 @@ ${CDG}Usage:${CN}
 ${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
    -h   This help
    -q   Quiet mode (no output)
-   -l   Lock binary to this system & UID or fail if copied.
-        It will exit with BC_LOCK if set to a numerical value.
-        Otherwise it will execute BC_LOCK as a command.
-        The default is to exit with 0 if copied.
+   -l   Lock binary to this system & UID and fail if copied.
+        On failure, do not execute the encrypted binary. Instead:
+        1. exit with 0 if BC_LOCK is not set. [default]
+        2. exit with BC_LOCK if set to a numerical value.
+        3. Execute BC_LOCK.
 
 ${CDG}Environment variables (optional):${CN}
 ${CDY}PASSWORD=${CN}     Password to encrypt/decrypt.
@@ -66,8 +67,8 @@ Obfuscate myfile.sh:
 Obfuscate /usr/bin/id (via pipe):
   ${CDC}cat ${CDY}/usr/bin/id${CN} | ${CDC}${bc}${CN} >${CDY}id.enc${CN}
 
-Obfuscate & Lock to system. Execute 'id; ls -al' if copied:
-  ${CDY}BC_LOCK='id; ls -al' ${CDC}${bc} ${CDY}myfile.sh${CN}
+Obfuscate & Lock to system. Execute 'id; uname -a' if copied:
+  ${CDY}BC_LOCK='id; uname -a' ${CDC}${bc} ${CDY}myfile.sh${CN}
 
 Encrypt myfile.sh with password 'mysecret':
   ${CDC}${bc} ${CDY}myfile.sh ${CDY}mysecret${CN}
