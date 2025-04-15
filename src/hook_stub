@@ -19,6 +19,7 @@ fn="${BC_FN:-$fn}"
 # Special case when bash -c "$(cat encrypted.sh)":
 # - Needs to be \0 free
 XS="${BASH_EXECUTION_STRING:-$ZSH_EXECUTION_STRING}"
+[ -z "$XS" ] && unset XS
 
 # [ -n "$DEBUG" ] && echo >&2 "0=$0, fn=$fn BC_FN=$BC_FN"
 [ -z "$fn" ] && [ -z "$XS" ] && [ ! -f "$0" ] && {
@@ -57,6 +58,7 @@ _bc_dec() {
     [ -n "$C" ] && {
         local str
         str="$(echo "$C" | openssl enc -d %%SSL_OPTS%% "C-${S}-${_P}" -a -A 2>/dev/null)"
+        unset C
         [ -z "$str" ] && {
             [ -n "$BCL" ] && echo >&2 "ERROR: Decryption failed."
             return 255
@@ -93,7 +95,7 @@ _bc_dec() {
         # Bourne shell does not allow 'source' or '<(':
         # source <(unset _ _P P S R fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_P" 2>/dev/null|gunzip)
         # Alternative 1:
-        unset -f _bcl_get _bcl_verify _bcl_verify_dec _bcl_dec
+        unset -f _bcl_get _bcl_verify _bcl_verify_dec
         unset BCL BCV _ P _err
         # eval "unset BCL BCV _ _P P S R fn;$(LANG=C perl -e '<>;<>;while(<>){s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
         eval "unset _P S R fn;$(LANG=C perl -e '<>;<>;read(STDIN,$_,1);while(<>){s/B3/\n/g;s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
@@ -109,7 +111,8 @@ _bc_dec() {
 }
 
 [ -z "$_err" ] && _bc_dec "$@"
-unset fn XS
+unset fn
+unset -f _bc_dec
 # HERE: sourced or eval'ed. Fall through with 'correct' error code:
 if [ -n "$_err" ]; then
     unset _err
