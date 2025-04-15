@@ -1,7 +1,9 @@
 #! /usr/bin/env bash
 
-# set PASSWORD=<password> to use a specific password. This password will be asked
-# for at execution unless provided by PASSWORD=<password> environment variable.
+# curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter
+# chmod +x bincrypter
+# ./bincrypter -h
+#
 #
 # https://github.com/hackerschoice/bincrypter
 
@@ -20,8 +22,8 @@ CF="\033[2m"     # faint
 _bincrypter() {
     local str ifn fn s c DATA P _P S HOOK _PASSWORD
     local USE_PERL=1
-    local _BC_QUIET="${_OPT_BC_QUIET:-$BC_QUIET}"
-    local _BC_LOCK="${_OPT_BC_LOCK:-$BC_LOCK}"
+    local _BC_QUIET
+    local _BC_LOCK
 
     # vampiredaddy wants this to work if dd + tr are not available:
     if [ -n "$USE_PERL" ]; then
@@ -33,6 +35,59 @@ _bincrypter() {
         _bc_xtr() { tr -d"${1:+c}" "${2}";}
         _bc_xprintf() { printf "$@"; }
     fi
+
+    _bc_usage() {
+        local bc="${0##*/}"
+        echo -en >&2 "\
+${CM}Encrypt or obfuscate a binary or script.${CDM}
+
+${CDG}Usage:${CN}
+${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
+   -h   This help
+   -q   Quiet mode (no output)
+   -l   Lock binary to this system & UID or fail if copied.
+        It will exit with BC_LOCK if set to a numerical value.
+        Otherwise it will execute BC_LOCK as a command.
+        The default is to exit with 0 if copied.
+
+${CDG}Environment variables (optional):${CN}
+${CDY}PASSWORD=${CN}     Password to encrypt/decrypt.
+${CDY}BC_PASSWORD=${CN}  Password to encrypt/decrypt (exported to callee).
+${CDY}BC_PADDING=n${CN}  Add 0..n% of random data to the binary [default: 25].
+${CDY}BC_QUIET=${CN}     See -q
+${CDY}BC_LOCK=${CN}      See -l
+
+${CDG}Examples:${CN}
+Obfuscate myfile.sh:
+  ${CDC}${bc} ${CDY}myfile.sh${CN}
+
+Obfuscate /usr/bin/id (via pipe):
+  ${CDC}cat ${CDY}/usr/bin/id${CN} | ${CDC}${bc}${CN} >${CDY}id.enc${CN}
+
+Obfuscate & Lock to system. Execute 'id; ls -al' if copied:
+  ${CDY}BC_LOCK='id; ls -al' ${CDC}${bc} ${CDY}myfile.sh${CN}
+
+Encrypt myfile.sh with password 'mysecret':
+  ${CDC}${bc} ${CDY}myfile.sh ${CDY}mysecret${CN}
+
+Encrypt by passing the password as environment variable:
+  ${CDY}PASSWORD=mysecret ${CDC}${bc} ${CDY}myfile.sh${CN}
+"
+        exit 0
+    } # EO _bc_usage
+
+    [ -t 0 ] && [ $# -eq 0 ] && _bc_usage
+    while getopts "hql" opt; do
+        case $opt in
+            h) _bc_usage ;;
+            q) _OPT_BC_QUIET=1 ;;
+            l) _OPT_BC_LOCK=0 ;;
+            *) ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    _BC_QUIET="${_OPT_BC_QUIET:-$BC_QUIET}"
+    _BC_LOCK="${_OPT_BC_LOCK:-$BC_LOCK}"
 
     _bc_err() {
         echo -e >&2 "${CDR}ERROR${CN}: $*"
@@ -95,11 +150,12 @@ _bincrypter() {
     # Sets _P
     # Return 0 to continue. Otherwise caller should return.
     # May exit if bin is executed on another host (BC_LOCK).
+    # This function is baked into the decrypter-hook
     _bcl_gen_p() {
         local _k
         # Binary is LOCKED to this host. Check if this is the same host to allow execution.
         [ -z "$BC_BCL_TEST_FAIL" ] && _k="$(_bcl_get)" && _P="$(echo "$1" | openssl enc -d -aes-256-cbc -md sha256 -nosalt -k "$_k" -a -A 2>/dev/null)"
-
+        # [ -n "$DEBUG" ] && echo >&2 "_k=$_k _P=$_P"
         [ -n "$_P" ] && return 0
         [ -n "$fn" ] && {
             # sourced
@@ -113,11 +169,15 @@ _bincrypter() {
         exec /bin/sh -c "$BCL"
         exit 255 # FATAL
     }
+    # Hack to stop VSCODE from marking _bcl_gen_p as unreached:
+    :||_bcl_gen_p ""
+
     _bcl_gen() {
         local _k
         local p
         # P:=Encrypt(P) using _bcl_get as key
         _k="$(_bcl_get)"
+        # [ -n "$DEBUG" ] && echo >&2 "_k=$_k P=$P"
         [ -z "$_k" ] && { echo -e >&2 "${CDR}ERROR${CN}: BC_LOCK not supported on this system"; return 255; }
         p="$(echo "$P" | openssl enc -aes-256-cbc -md sha256 -nosalt -k "${_k}" -a -A 2>/dev/null)"
         [ -z "$p" ] && { echo -e >&2 "${CDR}ERROR${CN}: Failed to generate BC_LOCK password"; return 255; }
@@ -153,7 +213,7 @@ _bincrypter() {
     }
 
     fn="-"
-    [ -n "${1:?}" ] && fn="$1" # $1 might be '-'
+    [ "$#" -gt 0 ] && fn="$1" # $1 might be '-'
     [ "$fn" != "-" ] && [ ! -f "$fn" ] && _bc_err "File not found: $fn"
 
     command -v openssl >/dev/null || _bc_err "openssl is required"
@@ -161,31 +221,38 @@ _bincrypter() {
     [ ! -c "/dev/urandom" ] && _bc_err "/dev/urandom is required"
 
     # Auto-generate password if not provided
-    _PASSWORD="${2:-${BC_PASSWORD:-$PASSWORD}}"
+    _PASSWORD="${2:-${PASSWORD:-$BC_PASSWORD}}"
+
     [ -n "$_BC_LOCK" ] && [ -n "$_PASSWORD" ] && { echo -e >&2 "${CDR}WARN${CN}: ${CDY}PASSWORD${CN} is ignored when using ${CDY}BC_LOCK${CN}."; unset _PASSWORD; }
     [ -z "$_PASSWORD" ] && P="$(DEBUG='' _bc_xdd 32 </dev/urandom | openssl base64 -A | _bc_xtr '^' '[:alnum:]' | DEBUG='' _bc_xdd 16)"
     _P="${_PASSWORD:-$P}"
     [ -z "$_P" ] && _bc_err "No ${CDC}PASSWORD=<password>${CN} provided and failed to generate one."
     unset _PASSWORD
+    # [ -n "$DEBUG" ] && echo >&2 "generated P=${P}"
 
     # Auto-generate SALT
     S="$(DEBUG='' _bc_xdd 32 </dev/urandom | openssl base64 -A | _bc_xtr '^' '[:alnum:]' | DEBUG='' _bc_xdd 16)"
 
     # base64 encoded decrypter
-    HOOK='Zm9yIHggaW4gb3BlbnNzbCBwZXJsIGd1bnppcDsgZG8KICAgIGNvbW1hbmQgLXYgIiR4IiA+L2Rldi9udWxsIHx8IHsgZWNobyA+JjIgIkVSUk9SOiBDb21tYW5kIG5vdCBmb3VuZDogJHgiOyByZXR1cm4gMjU1OyB9CmRvbmUKaWYgWyAtbiAiJFpTSF9WRVJTSU9OIiBdOyB0aGVuCiAgICBbICIkWlNIX0VWQUxfQ09OVEVYVCIgIT0gIiR7WlNIX0VWQUxfQ09OVEVYVCUiOmZpbGU6Iip9IiBdICYmIGZuPSIkMCIKZWxpZiBbIC1uICIkQkFTSF9WRVJTSU9OIiBdOyB0aGVuCiAgICAocmV0dXJuIDAgMj4vZGV2L251bGwpICYmIGZuPSIke0JBU0hfU09VUkNFWzBdfSIKZWxzZQogICAgWyAhIC1mICIkMCIgXSAmJiB7IGVjaG8gPiYyICdFUlJPUjogU2hlbGwgbm90IHN1cHBvcnRlZC4gVXNlIEJhc2ggb3IgWnNoIGluc3RlYWQuJzsgcmV0dXJuIDI1NTsgfQpmaQpfUD0iJHtCQ19QQVNTV09SRDotJFBBU1NXT1JEfSIKdW5zZXQgXyBQQVNTV09SRCAKaWYgWyAtbiAiJFAiIF07IHRoZW4KICAgIGlmIFsgLW4gIiRCQ1YiIF0gJiYgWyAtbiAiJEJDTCIgXTsgdGhlbgogICAgICAgIF9iY2xfZ2VuX3AgIiRQIiB8fCByZXR1cm4KICAgIGVsc2UKICAgICAgICBfUD0iJChlY2hvICIkUCJ8b3BlbnNzbCBiYXNlNjQgLUEgLWQpIgogICAgZmkKZWxzZQogICAgWyAteiAiJF9QIiBdICYmIHsKICAgICAgICBlY2hvID4mMiAtbiAiRW50ZXIgcGFzc3dvcmQ6ICIKICAgICAgICByZWFkIC10IDYwIC1yIF9QCiAgICB9CmZpCnByZz0icGVybCAtZSAnPD47PD47cHJpbnQoPD4pJzwnJHtmbjotJDB9J3xvcGVuc3NsIGVuYyAtZCAtYWVzLTI1Ni1jYmMgLW1kIHNoYTI1NiAtbm9zYWx0IC1rICcke1N9LSR7X1B9JyAyPi9kZXYvbnVsbHxwZXJsIC1lICdyZWFkKFNURElOLFxcXCRfLCAkUik7cHJpbnQoPD4pJ3xndW56aXAiClsgLW4gIiRmbiIgXSAmJiB7CiAgICB1bnNldCAtZiBfYmNsX2dldCBfYmNsX3ZlcmlmeSBfYmNsX3ZlcmlmeV9kZWMKICAgIGV2YWwgInVuc2V0IEJDTCBCQ1YgXyBfUCBQIFMgUiBwcmcgZm47JChMQU5HPUMgcGVybCAtZSAnPD47PD47cHJpbnQoPD4pJzwiJHtmbn0ifG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgIiR7U30tJHtfUH0iIDI+L2Rldi9udWxsfHBlcmwgLWUgInJlYWQoU1RESU4sXCRfLCAkUik7cHJpbnQoPD4pInxndW56aXApIgogICAgcmV0dXJuCn0KTEFORz1DIGV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSw0MzE0LDQzNTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSl8fGV4aXQoJD8vMjU2KTskRU5WeyJMQU5HIn09IiciJExBTkciJyI7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIK'
+    HOOK='Zm9yIHggaW4gb3BlbnNzbCBwZXJsIGd1bnppcDsgZG8KICAgIGNvbW1hbmQgLXYgIiR4IiA+L2Rldi9udWxsIHx8IHsgZWNobyA+JjIgIkVSUk9SOiBDb21tYW5kIG5vdCBmb3VuZDogJHgiOyByZXR1cm4gMjU1OyB9CmRvbmUKdW5zZXQgZm4gX2VycgppZiBbIC1uICIkWlNIX1ZFUlNJT04iIF07IHRoZW4KICAgIFsgIiRaU0hfRVZBTF9DT05URVhUIiAhPSAiJHtaU0hfRVZBTF9DT05URVhUJSI6ZmlsZToiKn0iIF0gJiYgZm49IiQwIgplbGlmIFsgLW4gIiRCQVNIX1ZFUlNJT04iIF07IHRoZW4KICAgIChyZXR1cm4gMCAyPi9kZXYvbnVsbCkgJiYgZm49IiR7QkFTSF9TT1VSQ0VbMF19IgpmaQpbIC1uICIkZm4iIF0gJiYgaXNfc291cmNlZD0xCmZuPSIke0JDX0ZOOi0kZm59IgpYUz0iJHtCQVNIX0VYRUNVVElPTl9TVFJJTkc6LSRaU0hfRVhFQ1VUSU9OX1NUUklOR30iClsgLXogIiRmbiIgXSAmJiBbIC16ICIkWFMiIF0gJiYgewogICAgWyAhIC1mICIkMCIgXSAmJiB7CiAgICAgICAgZWNobyA+JjIgJ0VSUk9SOiBTaGVsbCBub3Qgc3VwcG9ydGVkLiBUcnkgIkJDX0ZOPUZpbGVOYW1lIHNvdXJjZSBGaWxlTmFtZSInCiAgICAgICAgX2Vycj0xCiAgICB9CiAgICBpc19zb3VyY2VkPTEKfQpbIC16ICIkX2VyciIgXSAmJiB7CiAgICBfUD0iJHtQQVNTV09SRDotJEJDX1BBU1NXT1JEfSIKICAgIHVuc2V0IF8gUEFTU1dPUkQgCiAgICBpZiBbIC1uICIkUCIgXTsgdGhlbgogICAgICAgIGlmIFsgLW4gIiRCQ1YiIF0gJiYgWyAtbiAiJEJDTCIgXTsgdGhlbgogICAgICAgICAgICBfYmNsX2dlbl9wICIkUCIgfHwgcmV0dXJuCiAgICAgICAgZWxzZQogICAgICAgICAgICBfUD0iJChlY2hvICIkUCJ8b3BlbnNzbCBiYXNlNjQgLUEgLWQpIgogICAgICAgIGZpCiAgICBlbHNlCiAgICAgICAgWyAteiAiJF9QIiBdICYmIHsKICAgICAgICAgICAgZWNobyA+JjIgLW4gIkVudGVyIHBhc3N3b3JkOiAiCiAgICAgICAgICAgIHJlYWQgLXIgX1AKICAgICAgICB9CiAgICBmaQogICAgWyAtbiAiJFhTIiBdICYmIHsKICAgICAgICBleGVjIGJhc2ggLWMgIiQocHJpbnRmICVzICIkWFMiIHxMQU5HPUMgcGVybCAtZSAnPD47PD47cmVhZChTVERJTiwkXywxKTt3aGlsZSg8Pil7cy9CMy9cbi9nO3MvQjEvXHgwMC9nO3MvQjIvQi9nO3ByaW50fSd8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAiJHtTfS0ke19QfSIgMj4vZGV2L251bGx8TEFORz1DIHBlcmwgLWUgInJlYWQoU1RESU4sXCRfLCAke1I6LTB9KTtwcmludCg8PikifGd1bnppcCkiCiAgICB9CiAgICBbIC16ICIkZm4iIF0gJiYgWyAtZiAiJDAiIF0gJiYgewogICAgICAgIHpmPSdyZWFkKFNURElOLFwkXywxKTt3aGlsZSg8Pil7cy9CMy9cbi9nO3MvQjEvXFx4MDAvZztzL0IyL0IvZztwcmludH0nCiAgICAgICAgcHJnPSJwZXJsIC1lICc8Pjs8PjskemYnPCckezB9J3xvcGVuc3NsIGVuYyAtZCAtYWVzLTI1Ni1jYmMgLW1kIHNoYTI1NiAtbm9zYWx0IC1rICcke1N9LSR7X1B9JyAyPi9kZXYvbnVsbHxwZXJsIC1lICdyZWFkKFNURElOLFxcXCRfLCAke1I6LTB9KTtwcmludCg8PiknfGd1bnppcCIKICAgICAgICBMQU5HPUMgZXhlYyBwZXJsICctZSReRj0yNTU7Zm9yKDMxOSwyNzksMzg1LDQzMTQsNDM1NCl7KCRmPXN5c2NhbGwkXywkIiwwKT4wJiZsYXN0fTtvcGVuKCRvLCI+Jj0iLiRmKTtvcGVuKCRpLCInIiRwcmciJ3wiKTtwcmludCRvKDwkaT4pO2Nsb3NlKCRpKXx8ZXhpdCgkPy8yNTYpOyRFTlZ7IkxBTkcifT0iJyIkTEFORyInIjtleGVjeyIvcHJvYy8kJC9mZC8kZiJ9IiciJHswOi1weXRob24zfSInIixAQVJHVicgLS0gIiRAIgogICAgfQogICAgWyAtZiAiJHtmbn0iIF0gJiYgewogICAgICAgIHVuc2V0IC1mIF9iY2xfZ2V0IF9iY2xfdmVyaWZ5IF9iY2xfdmVyaWZ5X2RlYwogICAgICAgIGV2YWwgInVuc2V0IEJDTCBCQ1YgXyBfUCBQIFMgUiBmbjskKExBTkc9QyBwZXJsIC1lICc8Pjs8PjtyZWFkKFNURElOLCRfLDEpO3doaWxlKDw+KXtzL0IzL1xuL2c7cy9CMS9ceDAwL2c7cy9CMi9CL2c7cHJpbnR9JzwiJHtmbn0ifG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgIiR7U30tJHtfUH0iIDI+L2Rldi9udWxsfExBTkc9QyBwZXJsIC1lICJyZWFkKFNURElOLFwkXywgJHtSOi0wfSk7cHJpbnQoPD4pInxndW56aXApIgogICAgICAgIFsgLXogIiRCQ19GTiIgXSAmJiByZXR1cm4KICAgICAgICBbIC1uICIkaXNfc291cmNlZCIgXSAmJiByZXR1cm4KICAgIH0KICAgIFsgLW4gIiRmbiIgXSAmJiBlY2hvID4mMiAiRVJST1I6IEZpbGUgbm90IGZvdW5kOiAkZm4iCn0KdW5zZXQgX2VyciBmbiBYUyBpc19zb3VyY2VkCg=='
 
-    # _P - used with openssl below
-    #  P - stored in P=$P
+    # _P - used with openssl below. AS INSERTED BY USER _or_ GENERATED.
+    #  P - Generated. Stored in P=base64($P).
+    # [ -n "$DEBUG" ] && echo >&2 "OpenSSL ENC with _P=$_P (P='$P')"
     unset str
+    # P:=Encrypted(P) using HOST-ID as encryption-key. Resets $str.
     [ -n "$_BC_LOCK" ] && _bcl_gen
-    # Fallback
     [ -z "$str" ] && {
+        # NOT using BC_LOCK (Fallback)
         str="unset BCV BCL"$'\n'
-        P="$(echo "$_P"|openssl base64 -A 2>/dev/null)"
+        # P is not set if provided via ENV or $2
+        [ -n "$P" ] && P="$(echo "$P"|openssl base64 -A 2>/dev/null)"
     }
 
+    # Always base64 encode.
     ## Add Password to script ($P might be encrypted if BC_LOCK is set)
     [ -n "$P" ] && {
+        # [ -n "$DEBUG" ] && echo >&2 "Store P=${P}"
         str+="P=${P}"$'\n'
         unset P
     }
@@ -203,11 +270,12 @@ _bincrypter() {
         local sz="${#DATA}"
         [ "$sz" -lt 31337 ] && sz=31337
         local R="$(( (RANDOM * 32768 + RANDOM) % ((sz / 100) * ${BC_PADDING:-25})))"
+        # FIXME: Configs like "R" should be stored encrypted as leak information about the true size of the binary.
+        str+="R=${R:-0}"$'\n'
     }
-    str+="R=${R:-0}"$'\n'
 
     str+="$(echo "$HOOK"|openssl base64 -A -d)"
-    [ -n "$DEBUG" ] && { echo -en >&2 "DEBUG: ===code===\n${CDM}${CF}"; echo >&2 "$str"; echo -en >&2 "${CN}"; }
+    # [ -n "$DEBUG" ] && { echo -en >&2 "DEBUG: ===code===\n${CDM}${CF}"; echo >&2 "$str"; echo -en >&2 "${CN}"; }
     ## Encode & obfuscate the HOOK
     HOOK="$(echo "$str" | openssl base64 -A)"
     HOOK="$(_bc_ob64 "$HOOK")"
@@ -239,9 +307,14 @@ _bincrypter() {
         # far far far after garbage
         ## Add my hook to decrypt/execute binary
         # echo "eval \"\$(echo $HOOK|strings -n1|openssl base64 -d)\""
-        echo "$(_bc_obbell 'eval "')\$$(_bc_obbell '(echo ')$HOOK|{ LANG=C $(_bc_obbell "perl -pe \"s/[^[:print:]]//g\"");}$(_bc_obbell "|openssl base64 -A -d)")\""
+        echo "$(_bc_obbell 'eval "')\$$(_bc_obbell '(echo ')$HOOK|LANG=C $(_bc_obbell "perl -pe \"s/[^[:print:]]//g\"")$(_bc_obbell "|openssl base64 -A -d)")\""
         # Add the encrypted binary (from memory)
-        ( DEBUG='' _bc_xdd "$R" </dev/urandom; openssl base64 -d<<<"$DATA") |openssl enc -aes-256-cbc -md sha256 -nosalt -k "${S}-${_P}" 2>/dev/null
+        # ( DEBUG='' _bc_xdd "${R:-0}" </dev/urandom; openssl base64 -d<<<"$DATA") |openssl enc -aes-256-cbc -md sha256 -nosalt -k "${S}-${_P}" 2>/dev/null | LANG=C perl -pe 's/B/B2/g; s/\x00/B1/g'
+ 
+        # To support 'BC_FN=h.sh eval "$(<h.sh)"' we need to have all binary data in one single
+        # line and pre-fixed with '#' to prevent execution.
+        echo -n '#'
+        ( DEBUG='' _bc_xdd "${R:-0}" </dev/urandom; openssl base64 -d<<<"$DATA") |openssl enc -aes-256-cbc -md sha256 -nosalt -k "${S}-${_P}" 2>/dev/null | LANG=C perl -pe 's/B/B2/g; s/\x00/B1/g; s/\n/B3/g'
     } > "$fn"
 
     [ -n "$s" ] && {
@@ -249,7 +322,8 @@ _bincrypter() {
         [ -n "$c" ] && echo -e >&2 "${CDY}Compressed:${CN} ${CDM}$s ${CF}-->${CN}${CDM} $c ${CN}[${CDG}$((c * 100 / s))%${CN}]"
     }
     # [ -z "$_BC_QUIET" ] && [ -n "$_BC_LOCK" ] && echo -e >&2 "${CDY}PASSWORD=${CF}${_P}${CN}"
-    unset -f _bcl_get _bcl_verify _bcl_verify_dec _bc_err _bc_ob64 _bc_obbell _bc_xdd _bc_xtr _bc_xprintf
+    unset -f _bc_usage _bcl_get _bcl_verify _bcl_verify_dec _bc_err _bc_ob64 _bc_obbell _bc_xdd _bc_xtr _bc_xprintf
+    [ -z "$_BC_QUIET" ] && echo -e >&2 "${CDG}Done${CN}"
 }
 # %%END_BC_FUNC%%
 
@@ -258,58 +332,10 @@ _bincrypter() {
 (return 0 2>/dev/null) && _sourced=1
 [ -z "$_sourced" ] && {
     # Execute if not sourced:
-    _bc_usage() {
-        local bc="${0##*/}"
-        echo -en >&2 "\
-${CM}Encrypt or obfuscate a binary or script.${CDM}
-
-${CDG}Usage:${CN}
-${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
-   -h   This help
-   -q   Quiet mode (no output)
-   -l   Lock binary to this system & UID or fail if copied.
-        It will exit with BC_LOCK if set to a numerical value.
-        Otherwise it will execute BC_LOCK as a command.
-        The default is to exit with 0 if copied.
-
-${CDG}Environment variables (optional):${CN}
-${CDY}PASSWORD=${CN}     Password to encrypt/decrypt.
-${CDY}BC_PASSWORD=${CN}  Password to encrypt/decrypt (exported to callee).
-${CDY}BC_PADDING=n${CN}  Add 0..n% of random data to the binary [default: 25].
-${CDY}BC_QUIET=${CN}     See -q
-${CDY}BC_LOCK=${CN}      See -l
-
-${CDG}Examples:${CN}
-Obfuscate myfile.sh:
-  ${CDC}${bc} ${CDY}myfile.sh${CN}
-
-Obfuscate /usr/bin/id (via pipe):
-  ${CDC}cat ${CDY}/usr/bin/id${CN} | ${CDC}${bc}${CN} >${CDY}id.enc${CN}
-
-Obfuscate & Lock to system. Execute 'id; ls -al' if copied:
-  ${CDY}BC_LOCK='id; ls -al' ${CDC}${bc} ${CDY}myfile.sh${CN}
-
-Encrypt myfile.sh with password 'mysecret':
-  ${CDC}${bc} ${CDY}myfile.sh ${CDY}mysecret${CN}
-
-Encrypt by passing the password as environment variable:
-  ${CDY}PASSWORD=mysecret ${CDC}${bc} ${CDY}myfile.sh${CN}
-"
-        exit 0
-    }
-    [ -t 0 ] && [ $# -eq 0 ] && _bc_usage
-    while getopts "hql" opt; do
-        case $opt in
-            h) _bc_usage ;;
-            q) _OPT_BC_QUIET=1 ;;
-            l) _OPT_BC_LOCK=0 ;;
-            *) ;;
-        esac
-    done
-    shift $((OPTIND - 1))
-
     _bincrypter "$@"
+    exit
 }
 
 ### HERE: sourced
+bincrypter() { _bincrypter "$@"; }
 unset _sourced

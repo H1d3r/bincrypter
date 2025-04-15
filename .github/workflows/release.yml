@@ -61,6 +61,10 @@ jobs:
 
       - name: perms
         run: |
+          tty
+          which script
+          id
+          sudo id
           chmod +x bincrypter
           chmod +x run-tests.sh
 

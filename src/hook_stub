@@ -7,52 +7,97 @@ done
 
 # Check if file is sourced or executed
 # - if executed then we are using /bin/sh and ZSH/BASH-version are _not_ set.
+unset fn _err
 if [ -n "$ZSH_VERSION" ]; then
     [ "$ZSH_EVAL_CONTEXT" != "${ZSH_EVAL_CONTEXT%":file:"*}" ] && fn="$0"
 elif [ -n "$BASH_VERSION" ]; then
     (return 0 2>/dev/null) && fn="${BASH_SOURCE[0]}"
-else
+fi
+[ -n "$fn" ] && is_sourced=1
+
+# Favor BC_FN over BASH_SOURCE[0]
+fn="${BC_FN:-$fn}"
+# Special case when bash -c "$(cat encrypted.sh)":
+# - Needs to be \0 free
+XS="${BASH_EXECUTION_STRING:-$ZSH_EXECUTION_STRING}"
+
+[ -z "$fn" ] && [ -z "$XS" ] && {
     # Tricky bit to detect if sourced on BusyBox.
     # - This part might be evaluated (eval()) from /bin/sh
-    # - If executed then $0 is the script name. If sourced then $0=sh
-    #   and BusyBox does not tell us which file was sourced.
-    # FIXME: could make something crazy like:
-    # eval "$(BC_OUTPUT=1 ./SCRIPTNAME)" -> but that's to easy of a general purpose decrypt function for admins.
-    [ ! -f "$0" ] && { echo >&2 'ERROR: Shell not supported. Use Bash or Zsh instead.'; return 255; }
-fi
-    
-_P="${BC_PASSWORD:-$PASSWORD}"
-# bourne shell exports _ by default. It contains binary garbage. Remove.
-# Leak BC_PASSWORD on purpose to allow nested-decryption.
-unset _ PASSWORD # do not leak into new process
-
-if [ -n "$P" ]; then
-    # Prefer internal password $P over environment variable
-    if [ -n "$BCV" ] && [ -n "$BCL" ]; then
-        _bcl_gen_p "$P" || return
-    else
-        _P="$(echo "$P"|openssl base64 -A -d)"
-    fi
-else
-    [ -z "$_P" ] && {
-        # BASH + ZSH compat prompt
-        echo >&2 -n "Enter password: "
-        read -t 60 -r _P
+    # - If executed, then $0 is the script name.
+    #   If sourced, then $0=sh
+    #   => BusyBox does not tell us which file was sourced.
+    #   Note: On gsnc, $0 might be any process name. Let's hope file does not exist.
+    [ ! -f "$0" ] && {
+        echo >&2 'ERROR: Shell not supported. Try "BC_FN=FileName source FileName"'
+        _err=1
     }
-fi
-prg="perl -e '<>;<>;print(<>)'<'${fn:-$0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_P}' 2>/dev/null|perl -e 'read(STDIN,\\\$_, $R);print(<>)'|gunzip"
-[ -n "$fn" ] && {
-    # Bourne shell does not allow 'source' or '<(':
-    # source <(unset _ _P P S R prg fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_P" 2>/dev/null|gunzip)
-    # Alternative 1:
-    unset -f _bcl_get _bcl_verify _bcl_verify_dec
-    eval "unset BCL BCV _ _P P S R prg fn;$(LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|perl -e "read(STDIN,\$_, $R);print(<>)"|gunzip)"
-    # Alternative 2:
-    # eval "unset _ _P P S R prg fn;$(LANG=C perl -e 'open($i,"'"$prg"'|");print(<$i>);')"
-    return
+    is_sourced=1
 }
 
-### HERE: it's not sourced. Execute instead.
-# Note: The 2nd LANG is the original/correct and _not_ set to C.
-# FIXME: if gunzip fails then perl will exit with 0 and not 255.
-LANG=C exec perl '-e$^F=255;for(319,279,385,4314,4354){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i)||exit($?/256);$ENV{"LANG"}="'"$LANG"'";exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
+[ -z "$_err" ] && {
+    # Favor PASSWORD (non-exported/OUTTER) over BC_PASSWORD (exported/INNER)
+    _P="${PASSWORD:-$BC_PASSWORD}"
+    # bourne shell exports _ by default. It contains binary garbage. Remove.
+    # Leak BC_PASSWORD on purpose to allow nested-decryption.
+    unset _ PASSWORD # do not leak into new process
+
+    if [ -n "$P" ]; then
+        # Prefer internal password $P over environment variable
+        if [ -n "$BCV" ] && [ -n "$BCL" ]; then
+            _bcl_gen_p "$P" || return
+        else
+            _P="$(echo "$P"|openssl base64 -A -d)"
+        fi
+    else
+        [ -z "$_P" ] && {
+            # DASH + BASH + ZSH compat prompt (dash does not support -t, zsh does not support -P)
+            echo >&2 -n "Enter password: "
+            read -r _P
+        }
+    fi
+
+    # Scenarios to consider:
+    # ./h.sh
+    # source ./h.sh
+    # bash -c "$(<h.sh)"
+    # STOP HERE: Are these considered?
+    # BC_FN=h.sh source ./h.sh
+    # BC_FN=h.sh bash -c "$(<./h.sh)"
+    # BC_FN=h.sh eval "$(<./h.sh)"
+    [ -n "$XS" ] && {
+        exec bash -c "$(printf %s "$XS" |LANG=C perl -e '<>;<>;read(STDIN,$_,1);while(<>){s/B3/\n/g;s/B1/\x00/g;s/B2/B/g;print}'|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
+        # exit # EXEC FAILED. FATAL 
+    }
+
+    [ -z "$fn" ] && [ -f "$0" ] && {
+        zf='read(STDIN,\$_,1);while(<>){s/B3/\n/g;s/B1/\\x00/g;s/B2/B/g;print}'
+        prg="perl -e '<>;<>;$zf'<'${0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_P}' 2>/dev/null|perl -e 'read(STDIN,\\\$_, ${R:-0});print(<>)'|gunzip"
+
+        ### HERE: it's not sourced. Execute instead.
+        # Note: The 2nd LANG is the original/correct and _not_ set to C.
+        LANG=C exec perl '-e$^F=255;for(319,279,385,4314,4354){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);open($i,"'"$prg"'|");print$o(<$i>);close($i)||exit($?/256);$ENV{"LANG"}="'"$LANG"'";exec{"/proc/$$/fd/$f"}"'"${0:-python3}"'",@ARGV' -- "$@"
+        # exit # EXEC FAILED. FATAL
+    }
+
+    [ -f "${fn}" ] && {
+        # [./h.sh] or [source ./h.sh]
+        # Bourne shell does not allow 'source' or '<(':
+        # source <(unset _ _P P S R fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_P" 2>/dev/null|gunzip)
+        # Alternative 1:
+        unset -f _bcl_get _bcl_verify _bcl_verify_dec
+        # eval "unset BCL BCV _ _P P S R fn;$(LANG=C perl -e '<>;<>;while(<>){s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
+        eval "unset BCL BCV _ _P P S R fn;$(LANG=C perl -e '<>;<>;read(STDIN,$_,1);while(<>){s/B3/\n/g;s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
+        # Alternative 2:
+        # eval "unset _ _P P S R prg fn;$(LANG=C perl -e 'open($i,"'"${prg:?}"'|");print(<$i>);')"
+
+        # BC_FN=./h.sh source h.sh
+        # source h.sh
+        # 'source' must return HERE or it will keep sourcing encrypted data
+        # However, eval must not return here
+        [ -z "$BC_FN" ] && return
+        [ -n "$is_sourced" ] && return
+    }
+    [ -n "$fn" ] && echo >&2 "ERROR: File not found: $fn"
+}
+unset _err fn XS is_sourced
