@@ -61,7 +61,6 @@ jobs:
 
       - name: perms
         run: |
-          tty
           which script
           id
           sudo id
