@@ -54,6 +54,17 @@ _bc_dec() {
         }
     fi
 
+    [ -n "$C" ] && {
+        local str
+        str="$(echo "$C" | openssl enc -d %%SSL_OPTS%% "C-${S}-${_P}" -a -A 2>/dev/null)"
+        [ -z "$str" ] && {
+            [ -n "$BCL" ] && echo >&2 "ERROR: Decryption failed."
+            return 255
+        }
+        eval "$str"
+        unset str
+    }
+
     # Scenarios to consider:
     # ./h.sh
     # source ./h.sh

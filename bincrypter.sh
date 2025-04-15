@@ -189,11 +189,11 @@ Encrypt by passing the password as environment variable:
         str+="$(declare -f _bcl_gen_p)"$'\n'
         str+="BCL='$(openssl base64 -A <<<"${_BC_LOCK}")'"$'\n'
         # Add test value
-        str+="BCV='$(echo TEST-VALUE-VERIFY | openssl enc -aes-256-cbc -md sha256 -nosalt -k "${_k}" -a -A 2>/dev/null)'"$'\n'
+        str+="BCV='$(echo TEST-VALUE-VERIFY | openssl enc -aes-256-cbc -md sha256 -nosalt -k "B-${_k}" -a -A 2>/dev/null)'"$'\n'
     }
     # Test a key candidate and on success output the candidate to STDOUT.
     _bcl_verify_dec() {
-        [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d -aes-256-cbc -md sha256 -nosalt -k "${1}-${UID}" -a -A 2>/dev/null)" ] && return 255
+        [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d -aes-256-cbc -md sha256 -nosalt -k "B-${1}-${UID}" -a -A 2>/dev/null)" ] && return 255
         echo "$1-${UID}"
     }
     # Encrypt & Decrypt BCV for testing.
@@ -201,13 +201,15 @@ Encrypt by passing the password as environment variable:
         # [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d -aes-256-cbc -md sha256 -nosalt -k "${1}" -a -A 2>/dev/null)" ] && return 255
         echo "$1-${UID}"
     }
+    :||_bcl_verify
+
     # Generate a LOCK key and output it to STDOUT (if valid).
     # This script uses the above bcl_verify but the decoder uses its own
     # bcl_verify as a trampoline to call bcl_verify_dec.
     # FIXME: Consider cases where machine-id changes. Fallback to dmidecode and others....
     _bcl_get() {
         [ -z "$UID" ] && UID="$(id -u 2>/dev/null)"
-        [ -f "/etc/machine-id" ] && _bcl_verify "$(cat "/etc/machine-id")" && return
+        [ -f "/etc/machine-id" ] && _bcl_verify "$(cat "/etc/machine-id" 2>/dev/null)" && return
         command -v dmidecode >/dev/null && _bcl_verify "$(dmidecode -t 1 2>/dev/null | LANG=C perl -ne '/UUID/ && print')" && return
         _bcl_verify "$({ ip l sh dev "$(ip route show match 1.1.1.1 | sed -E 's/.*dev ([^ ]*) .*/\1/')" | grep -o 'ether [^ ]*';} 2>/dev/null)" && return
         _bcl_verify "$({ fdisk -l | grep -i identifier | head -n1;} 2>/dev/null)" && return
@@ -235,12 +237,12 @@ Encrypt by passing the password as environment variable:
     S="$(DEBUG='' _bc_xdd 32 </dev/urandom | openssl base64 -A | _bc_xtr '^' '[:alnum:]' | DEBUG='' _bc_xdd 16)"
 
     # base64 encoded decrypter
-    HOOK='Zm9yIHggaW4gb3BlbnNzbCBwZXJsIGd1bnppcDsgZG8KICAgIGNvbW1hbmQgLXYgIiR4IiA+L2Rldi9udWxsIHx8IHsgZWNobyA+JjIgIkVSUk9SOiBDb21tYW5kIG5vdCBmb3VuZDogJHgiOyByZXR1cm4gMjU1OyB9CmRvbmUKdW5zZXQgZm4gX2VycgppZiBbIC1uICIkWlNIX1ZFUlNJT04iIF07IHRoZW4KICAgIFsgIiRaU0hfRVZBTF9DT05URVhUIiAhPSAiJHtaU0hfRVZBTF9DT05URVhUJSI6ZmlsZToiKn0iIF0gJiYgZm49IiQwIgplbGlmIFsgLW4gIiRCQVNIX1ZFUlNJT04iIF07IHRoZW4KICAgIChyZXR1cm4gMCAyPi9kZXYvbnVsbCkgJiYgZm49IiR7QkFTSF9TT1VSQ0VbMF19IgpmaQpmbj0iJHtCQ19GTjotJGZufSIKWFM9IiR7QkFTSF9FWEVDVVRJT05fU1RSSU5HOi0kWlNIX0VYRUNVVElPTl9TVFJJTkd9IgpbIC16ICIkZm4iIF0gJiYgWyAteiAiJFhTIiBdICYmIFsgISAtZiAiJDAiIF0gJiYgewogICAgZWNobyA+JjIgJ0VSUk9SOiBTaGVsbCBub3Qgc3VwcG9ydGVkLiBUcnkgIkJDX0ZOPUZpbGVOYW1lIHNvdXJjZSBGaWxlTmFtZSInCiAgICBfZXJyPTEKfQpfYmNfZGVjKCkgewogICAgX1A9IiR7UEFTU1dPUkQ6LSRCQ19QQVNTV09SRH0iCiAgICB1bnNldCBfIFBBU1NXT1JEIAogICAgaWYgWyAtbiAiJFAiIF07IHRoZW4KICAgICAgICBpZiBbIC1uICIkQkNWIiBdICYmIFsgLW4gIiRCQ0wiIF07IHRoZW4KICAgICAgICAgICAgX2JjbF9nZW5fcCAiJFAiIHx8IHJldHVybgogICAgICAgIGVsc2UKICAgICAgICAgICAgX1A9IiQoZWNobyAiJFAifG9wZW5zc2wgYmFzZTY0IC1BIC1kKSIKICAgICAgICBmaQogICAgZWxzZQogICAgICAgIFsgLXogIiRfUCIgXSAmJiB7CiAgICAgICAgICAgIGVjaG8gPiYyIC1uICJFbnRlciBwYXNzd29yZDogIgogICAgICAgICAgICByZWFkIC1yIF9QCiAgICAgICAgfQogICAgZmkKICAgIFsgLW4gIiRYUyIgXSAmJiB7CiAgICAgICAgZXhlYyBiYXNoIC1jICIkKHByaW50ZiAlcyAiJFhTIiB8TEFORz1DIHBlcmwgLWUgJzw+Ozw+O3JlYWQoU1RESU4sJF8sMSk7d2hpbGUoPD4pe3MvQjMvXG4vZztzL0IxL1x4MDAvZztzL0IyL0IvZztwcmludH0nfG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgIiR7U30tJHtfUH0iIDI+L2Rldi9udWxsfExBTkc9QyBwZXJsIC1lICJyZWFkKFNURElOLFwkXywgJHtSOi0wfSk7cHJpbnQoPD4pInxndW56aXApIgogICAgfQogICAgWyAteiAiJGZuIiBdICYmIFsgLWYgIiQwIiBdICYmIHsKICAgICAgICB6Zj0ncmVhZChTVERJTixcJF8sMSk7d2hpbGUoPD4pe3MvQjMvXG4vZztzL0IxL1xceDAwL2c7cy9CMi9CL2c7cHJpbnR9JwogICAgICAgIHByZz0icGVybCAtZSAnPD47PD47JHpmJzwnJHswfSd8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAnJHtTfS0ke19QfScgMj4vZGV2L251bGx8cGVybCAtZSAncmVhZChTVERJTixcXFwkXywgJHtSOi0wfSk7cHJpbnQoPD4pJ3xndW56aXAiCiAgICAgICAgTEFORz1DIGV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSw0MzE0LDQzNTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSl8fGV4aXQoJD8vMjU2KTskRU5WeyJMQU5HIn09IiciJExBTkciJyI7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIKICAgIH0KICAgIFsgLWYgIiR7Zm59IiBdICYmIHsKICAgICAgICB1bnNldCAtZiBfYmNsX2dldCBfYmNsX3ZlcmlmeSBfYmNsX3ZlcmlmeV9kZWMgX2JjbF9kZWMKICAgICAgICB1bnNldCBCQ0wgQkNWIF8gUCBfZXJyCiAgICAgICAgZXZhbCAidW5zZXQgX1AgUyBSIGZuOyQoTEFORz1DIHBlcmwgLWUgJzw+Ozw+O3JlYWQoU1RESU4sJF8sMSk7d2hpbGUoPD4pe3MvQjMvXG4vZztzL0IxL1x4MDAvZztzL0IyL0IvZztwcmludH0nPCIke2ZufSJ8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAiJHtTfS0ke19QfSIgMj4vZGV2L251bGx8TEFORz1DIHBlcmwgLWUgInJlYWQoU1RESU4sXCRfLCAke1I6LTB9KTtwcmludCg8PikifGd1bnppcCkiCiAgICAgICAgcmV0dXJuCiAgICB9CiAgICBbIC16ICIkZm4iIF0gJiYgcmV0dXJuCiAgICBlY2hvID4mMiAiRVJST1I6IEZpbGUgbm90IGZvdW5kOiAkZm4iCiAgICBfZXJyPTEKfQpbIC16ICIkX2VyciIgXSAmJiBfYmNfZGVjICIkQCIKdW5zZXQgZm4gWFMKaWYgWyAtbiAiJF9lcnIiIF07IHRoZW4KICAgIHVuc2V0IF9lcnIKICAgIGZhbHNlCmVsc2UKICAgIHRydWUKZmkK'
+    HOOK='Zm9yIHggaW4gb3BlbnNzbCBwZXJsIGd1bnppcDsgZG8KICAgIGNvbW1hbmQgLXYgIiR4IiA+L2Rldi9udWxsIHx8IHsgZWNobyA+JjIgIkVSUk9SOiBDb21tYW5kIG5vdCBmb3VuZDogJHgiOyByZXR1cm4gMjU1OyB9CmRvbmUKdW5zZXQgZm4gX2VycgppZiBbIC1uICIkWlNIX1ZFUlNJT04iIF07IHRoZW4KICAgIFsgIiRaU0hfRVZBTF9DT05URVhUIiAhPSAiJHtaU0hfRVZBTF9DT05URVhUJSI6ZmlsZToiKn0iIF0gJiYgZm49IiQwIgplbGlmIFsgLW4gIiRCQVNIX1ZFUlNJT04iIF07IHRoZW4KICAgIChyZXR1cm4gMCAyPi9kZXYvbnVsbCkgJiYgZm49IiR7QkFTSF9TT1VSQ0VbMF19IgpmaQpmbj0iJHtCQ19GTjotJGZufSIKWFM9IiR7QkFTSF9FWEVDVVRJT05fU1RSSU5HOi0kWlNIX0VYRUNVVElPTl9TVFJJTkd9IgpbIC16ICIkZm4iIF0gJiYgWyAteiAiJFhTIiBdICYmIFsgISAtZiAiJDAiIF0gJiYgewogICAgZWNobyA+JjIgJ0VSUk9SOiBTaGVsbCBub3Qgc3VwcG9ydGVkLiBUcnkgIkJDX0ZOPUZpbGVOYW1lIHNvdXJjZSBGaWxlTmFtZSInCiAgICBfZXJyPTEKfQpfYmNfZGVjKCkgewogICAgX1A9IiR7UEFTU1dPUkQ6LSRCQ19QQVNTV09SRH0iCiAgICB1bnNldCBfIFBBU1NXT1JEIAogICAgaWYgWyAtbiAiJFAiIF07IHRoZW4KICAgICAgICBpZiBbIC1uICIkQkNWIiBdICYmIFsgLW4gIiRCQ0wiIF07IHRoZW4KICAgICAgICAgICAgX2JjbF9nZW5fcCAiJFAiIHx8IHJldHVybgogICAgICAgIGVsc2UKICAgICAgICAgICAgX1A9IiQoZWNobyAiJFAifG9wZW5zc2wgYmFzZTY0IC1BIC1kKSIKICAgICAgICBmaQogICAgZWxzZQogICAgICAgIFsgLXogIiRfUCIgXSAmJiB7CiAgICAgICAgICAgIGVjaG8gPiYyIC1uICJFbnRlciBwYXNzd29yZDogIgogICAgICAgICAgICByZWFkIC1yIF9QCiAgICAgICAgfQogICAgZmkKICAgIFsgLW4gIiRDIiBdICYmIHsKICAgICAgICBsb2NhbCBzdHIKICAgICAgICBzdHI9IiQoZWNobyAiJEMiIHwgb3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAiQy0ke1N9LSR7X1B9IiAtYSAtQSAyPi9kZXYvbnVsbCkiCiAgICAgICAgWyAteiAiJHN0ciIgXSAmJiB7CiAgICAgICAgICAgIFsgLW4gIiRCQ0wiIF0gJiYgZWNobyA+JjIgIkVSUk9SOiBEZWNyeXB0aW9uIGZhaWxlZC4iCiAgICAgICAgICAgIHJldHVybiAyNTUKICAgICAgICB9CiAgICAgICAgZXZhbCAiJHN0ciIKICAgICAgICB1bnNldCBzdHIKICAgIH0KICAgIFsgLW4gIiRYUyIgXSAmJiB7CiAgICAgICAgZXhlYyBiYXNoIC1jICIkKHByaW50ZiAlcyAiJFhTIiB8TEFORz1DIHBlcmwgLWUgJzw+Ozw+O3JlYWQoU1RESU4sJF8sMSk7d2hpbGUoPD4pe3MvQjMvXG4vZztzL0IxL1x4MDAvZztzL0IyL0IvZztwcmludH0nfG9wZW5zc2wgZW5jIC1kIC1hZXMtMjU2LWNiYyAtbWQgc2hhMjU2IC1ub3NhbHQgLWsgIiR7U30tJHtfUH0iIDI+L2Rldi9udWxsfExBTkc9QyBwZXJsIC1lICJyZWFkKFNURElOLFwkXywgJHtSOi0wfSk7cHJpbnQoPD4pInxndW56aXApIgogICAgfQogICAgWyAteiAiJGZuIiBdICYmIFsgLWYgIiQwIiBdICYmIHsKICAgICAgICB6Zj0ncmVhZChTVERJTixcJF8sMSk7d2hpbGUoPD4pe3MvQjMvXG4vZztzL0IxL1xceDAwL2c7cy9CMi9CL2c7cHJpbnR9JwogICAgICAgIHByZz0icGVybCAtZSAnPD47PD47JHpmJzwnJHswfSd8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAnJHtTfS0ke19QfScgMj4vZGV2L251bGx8cGVybCAtZSAncmVhZChTVERJTixcXFwkXywgJHtSOi0wfSk7cHJpbnQoPD4pJ3xndW56aXAiCiAgICAgICAgTEFORz1DIGV4ZWMgcGVybCAnLWUkXkY9MjU1O2ZvcigzMTksMjc5LDM4NSw0MzE0LDQzNTQpeygkZj1zeXNjYWxsJF8sJCIsMCk+MCYmbGFzdH07b3BlbigkbywiPiY9Ii4kZik7b3BlbigkaSwiJyIkcHJnIid8Iik7cHJpbnQkbyg8JGk+KTtjbG9zZSgkaSl8fGV4aXQoJD8vMjU2KTskRU5WeyJMQU5HIn09IiciJExBTkciJyI7ZXhlY3siL3Byb2MvJCQvZmQvJGYifSInIiR7MDotcHl0aG9uM30iJyIsQEFSR1YnIC0tICIkQCIKICAgIH0KICAgIFsgLWYgIiR7Zm59IiBdICYmIHsKICAgICAgICB1bnNldCAtZiBfYmNsX2dldCBfYmNsX3ZlcmlmeSBfYmNsX3ZlcmlmeV9kZWMgX2JjbF9kZWMKICAgICAgICB1bnNldCBCQ0wgQkNWIF8gUCBfZXJyCiAgICAgICAgZXZhbCAidW5zZXQgX1AgUyBSIGZuOyQoTEFORz1DIHBlcmwgLWUgJzw+Ozw+O3JlYWQoU1RESU4sJF8sMSk7d2hpbGUoPD4pe3MvQjMvXG4vZztzL0IxL1x4MDAvZztzL0IyL0IvZztwcmludH0nPCIke2ZufSJ8b3BlbnNzbCBlbmMgLWQgLWFlcy0yNTYtY2JjIC1tZCBzaGEyNTYgLW5vc2FsdCAtayAiJHtTfS0ke19QfSIgMj4vZGV2L251bGx8TEFORz1DIHBlcmwgLWUgInJlYWQoU1RESU4sXCRfLCAke1I6LTB9KTtwcmludCg8PikifGd1bnppcCkiCiAgICAgICAgcmV0dXJuCiAgICB9CiAgICBbIC16ICIkZm4iIF0gJiYgcmV0dXJuCiAgICBlY2hvID4mMiAiRVJST1I6IEZpbGUgbm90IGZvdW5kOiAkZm4iCiAgICBfZXJyPTEKfQpbIC16ICIkX2VyciIgXSAmJiBfYmNfZGVjICIkQCIKdW5zZXQgZm4gWFMKaWYgWyAtbiAiJF9lcnIiIF07IHRoZW4KICAgIHVuc2V0IF9lcnIKICAgIGZhbHNlCmVsc2UKICAgIHRydWUKZmkK'
 
     # _P - used with openssl below. AS INSERTED BY USER _or_ GENERATED.
     #  P - Generated. Stored in P=base64($P).
     # [ -n "$DEBUG" ] && echo >&2 "OpenSSL ENC with _P=$_P (P='$P')"
-    unset str
+    unset str _C R
     # P:=Encrypted(P) using HOST-ID as encryption-key. Resets $str.
     [ -n "$_BC_LOCK" ] && _bcl_gen
     [ -z "$str" ] && {
@@ -270,9 +272,14 @@ Encrypt by passing the password as environment variable:
     [ "$BC_PADDING" != "0" ] && {
         local sz="${#DATA}"
         [ "$sz" -lt 31337 ] && sz=31337
-        local R="$(( (RANDOM * 32768 + RANDOM) % ((sz / 100) * ${BC_PADDING:-25})))"
-        # FIXME: Configs like "R" should be stored encrypted as leak information about the true size of the binary.
-        str+="R=${R:-0}"$'\n'
+        R="$(( (RANDOM * 32768 + RANDOM) % ((sz / 100) * ${BC_PADDING:-25})))"
+    }
+    _C+="R=${R:-0}"$'\n'
+
+    ## Add encrypted configs to script
+    [ -n "$_C" ] && {
+        [ -n "$DEBUG" ] && echo >&2 "Store C=ENC('${_C}')"
+        str+="C=$(echo "$_C" | openssl enc -aes-256-cbc -md sha256 -nosalt -k "C-${S}-${_P}" -a -A 2>/dev/null)"$'\n'
     }
 
     str+="$(echo "$HOOK"|openssl base64 -A -d)"

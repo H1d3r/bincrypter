@@ -191,11 +191,11 @@ Encrypt by passing the password as environment variable:
         str+="$(declare -f _bcl_gen_p)"$'\n'
         str+="BCL='$(openssl base64 -A <<<"${_BC_LOCK}")'"$'\n'
         # Add test value
-        str+="BCV='$(echo TEST-VALUE-VERIFY | openssl enc %%SSL_OPTS%% "${_k}" -a -A 2>/dev/null)'"$'\n'
+        str+="BCV='$(echo TEST-VALUE-VERIFY | openssl enc %%SSL_OPTS%% "B-${_k}" -a -A 2>/dev/null)'"$'\n'
     }
     # Test a key candidate and on success output the candidate to STDOUT.
     _bcl_verify_dec() {
-        [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d %%SSL_OPTS%% "${1}-${UID}" -a -A 2>/dev/null)" ] && return 255
+        [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d %%SSL_OPTS%% "B-${1}-${UID}" -a -A 2>/dev/null)" ] && return 255
         echo "$1-${UID}"
     }
     # Encrypt & Decrypt BCV for testing.
@@ -203,13 +203,15 @@ Encrypt by passing the password as environment variable:
         # [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d %%SSL_OPTS%% "${1}" -a -A 2>/dev/null)" ] && return 255
         echo "$1-${UID}"
     }
+    :||_bcl_verify
+
     # Generate a LOCK key and output it to STDOUT (if valid).
     # This script uses the above bcl_verify but the decoder uses its own
     # bcl_verify as a trampoline to call bcl_verify_dec.
     # FIXME: Consider cases where machine-id changes. Fallback to dmidecode and others....
     _bcl_get() {
         [ -z "$UID" ] && UID="$(id -u 2>/dev/null)"
-        [ -f "/etc/machine-id" ] && _bcl_verify "$(cat "/etc/machine-id")" && return
+        [ -f "/etc/machine-id" ] && _bcl_verify "$(cat "/etc/machine-id" 2>/dev/null)" && return
         command -v dmidecode >/dev/null && _bcl_verify "$(dmidecode -t 1 2>/dev/null | LANG=C perl -ne '/UUID/ && print')" && return
         _bcl_verify "$({ ip l sh dev "$(ip route show match 1.1.1.1 | sed -E 's/.*dev ([^ ]*) .*/\1/')" | grep -o 'ether [^ ]*';} 2>/dev/null)" && return
         _bcl_verify "$({ fdisk -l | grep -i identifier | head -n1;} 2>/dev/null)" && return
@@ -242,7 +244,7 @@ Encrypt by passing the password as environment variable:
     # _P - used with openssl below. AS INSERTED BY USER _or_ GENERATED.
     #  P - Generated. Stored in P=base64($P).
     # [ -n "$DEBUG" ] && echo >&2 "OpenSSL ENC with _P=$_P (P='$P')"
-    unset str
+    unset str _C R
     # P:=Encrypted(P) using HOST-ID as encryption-key. Resets $str.
     [ -n "$_BC_LOCK" ] && _bcl_gen
     [ -z "$str" ] && {
@@ -272,9 +274,14 @@ Encrypt by passing the password as environment variable:
     [ "$BC_PADDING" != "0" ] && {
         local sz="${#DATA}"
         [ "$sz" -lt 31337 ] && sz=31337
-        local R="$(( (RANDOM * 32768 + RANDOM) % ((sz / 100) * ${BC_PADDING:-25})))"
-        # FIXME: Configs like "R" should be stored encrypted as leak information about the true size of the binary.
-        str+="R=${R:-0}"$'\n'
+        R="$(( (RANDOM * 32768 + RANDOM) % ((sz / 100) * ${BC_PADDING:-25})))"
+    }
+    _C+="R=${R:-0}"$'\n'
+
+    ## Add encrypted configs to script
+    [ -n "$_C" ] && {
+        [ -n "$DEBUG" ] && echo >&2 "Store C=ENC('${_C}')"
+        str+="C=$(echo "$_C" | openssl enc %%SSL_OPTS%% "C-${S}-${_P}" -a -A 2>/dev/null)"$'\n'
     }
 
     str+="$(echo "$HOOK"|openssl base64 -A -d)"
