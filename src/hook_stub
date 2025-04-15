@@ -13,7 +13,6 @@ if [ -n "$ZSH_VERSION" ]; then
 elif [ -n "$BASH_VERSION" ]; then
     (return 0 2>/dev/null) && fn="${BASH_SOURCE[0]}"
 fi
-[ -n "$fn" ] && is_sourced=1
 
 # Favor BC_FN over BASH_SOURCE[0]
 fn="${BC_FN:-$fn}"
@@ -21,21 +20,19 @@ fn="${BC_FN:-$fn}"
 # - Needs to be \0 free
 XS="${BASH_EXECUTION_STRING:-$ZSH_EXECUTION_STRING}"
 
-[ -z "$fn" ] && [ -z "$XS" ] && {
+# [ -n "$DEBUG" ] && echo >&2 "0=$0, fn=$fn BC_FN=$BC_FN"
+[ -z "$fn" ] && [ -z "$XS" ] && [ ! -f "$0" ] && {
     # Tricky bit to detect if sourced on BusyBox.
     # - This part might be evaluated (eval()) from /bin/sh
     # - If executed, then $0 is the script name.
     #   If sourced, then $0=sh
     #   => BusyBox does not tell us which file was sourced.
     #   Note: On gsnc, $0 might be any process name. Let's hope file does not exist.
-    [ ! -f "$0" ] && {
-        echo >&2 'ERROR: Shell not supported. Try "BC_FN=FileName source FileName"'
-        _err=1
-    }
-    is_sourced=1
+    echo >&2 'ERROR: Shell not supported. Try "BC_FN=FileName source FileName"'
+    _err=1
 }
 
-[ -z "$_err" ] && {
+_bc_dec() {
     # Favor PASSWORD (non-exported/OUTTER) over BC_PASSWORD (exported/INNER)
     _P="${PASSWORD:-$BC_PASSWORD}"
     # bourne shell exports _ by default. It contains binary garbage. Remove.
@@ -61,7 +58,6 @@ XS="${BASH_EXECUTION_STRING:-$ZSH_EXECUTION_STRING}"
     # ./h.sh
     # source ./h.sh
     # bash -c "$(<h.sh)"
-    # STOP HERE: Are these considered?
     # BC_FN=h.sh source ./h.sh
     # BC_FN=h.sh bash -c "$(<./h.sh)"
     # BC_FN=h.sh eval "$(<./h.sh)"
@@ -71,6 +67,7 @@ XS="${BASH_EXECUTION_STRING:-$ZSH_EXECUTION_STRING}"
     }
 
     [ -z "$fn" ] && [ -f "$0" ] && {
+        # HERE: normal use case
         zf='read(STDIN,\$_,1);while(<>){s/B3/\n/g;s/B1/\\x00/g;s/B2/B/g;print}'
         prg="perl -e '<>;<>;$zf'<'${0}'|openssl enc -d %%SSL_OPTS%% '${S}-${_P}' 2>/dev/null|perl -e 'read(STDIN,\\\$_, ${R:-0});print(<>)'|gunzip"
 
@@ -85,19 +82,27 @@ XS="${BASH_EXECUTION_STRING:-$ZSH_EXECUTION_STRING}"
         # Bourne shell does not allow 'source' or '<(':
         # source <(unset _ _P P S R fn;LANG=C perl -e '<>;<>;print(<>)'<"${fn}"|openssl enc -d %%SSL_OPTS%% "$_P" 2>/dev/null|gunzip)
         # Alternative 1:
-        unset -f _bcl_get _bcl_verify _bcl_verify_dec
+        unset -f _bcl_get _bcl_verify _bcl_verify_dec _bcl_dec
+        unset BCL BCV _ P _err
         # eval "unset BCL BCV _ _P P S R fn;$(LANG=C perl -e '<>;<>;while(<>){s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
-        eval "unset BCL BCV _ _P P S R fn;$(LANG=C perl -e '<>;<>;read(STDIN,$_,1);while(<>){s/B3/\n/g;s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
+        eval "unset _P S R fn;$(LANG=C perl -e '<>;<>;read(STDIN,$_,1);while(<>){s/B3/\n/g;s/B1/\x00/g;s/B2/B/g;print}'<"${fn}"|openssl enc -d %%SSL_OPTS%% "${S}-${_P}" 2>/dev/null|LANG=C perl -e "read(STDIN,\$_, ${R:-0});print(<>)"|gunzip)"
         # Alternative 2:
         # eval "unset _ _P P S R prg fn;$(LANG=C perl -e 'open($i,"'"${prg:?}"'|");print(<$i>);')"
 
-        # BC_FN=./h.sh source h.sh
-        # source h.sh
-        # 'source' must return HERE or it will keep sourcing encrypted data
-        # However, eval must not return here
-        [ -z "$BC_FN" ] && return
-        [ -n "$is_sourced" ] && return
+        return
     }
-    [ -n "$fn" ] && echo >&2 "ERROR: File not found: $fn"
+
+    [ -z "$fn" ] && return
+    echo >&2 "ERROR: File not found: $fn"
+    _err=1
 }
-unset _err fn XS is_sourced
+
+[ -z "$_err" ] && _bc_dec "$@"
+unset fn XS
+# HERE: sourced or eval'ed. Fall through with 'correct' error code:
+if [ -n "$_err" ]; then
+    unset _err
+    false
+else
+    true
+fi

@@ -277,7 +277,7 @@ Encrypt by passing the password as environment variable:
     }
 
     str+="$(echo "$HOOK"|openssl base64 -A -d)"
-    # [ -n "$DEBUG" ] && { echo -en >&2 "DEBUG: ===code===\n${CDM}${CF}"; echo >&2 "$str"; echo -en >&2 "${CN}"; }
+    [ -n "$DEBUG" ] && { echo -en >&2 "DEBUG: ===code===\n${CDM}${CF}"; echo >&2 "$str"; echo -en >&2 "${CN}"; }
     ## Encode & obfuscate the HOOK
     HOOK="$(echo "$str" | openssl base64 -A)"
     HOOK="$(_bc_ob64 "$HOOK")"

@@ -35,6 +35,11 @@ source ./t.sh
 BC_FN=t.sh source ./t.sh
 [ "${BC_TEST:-0}" -ne 1 ] && exit 255
 
+echo '>>> Test: BC_FN=t.sh eval "$(cat <t.sh)"'
+unset BC_TEST
+BC_FN=t.sh eval "$(cat <t.sh)"
+[ "${BC_TEST:-0}" -ne 1 ] && exit 255
+
 echo '>>> Test: bash -c "$(cat ./t.sh)"'
 bash -c "$(cat ./t.sh)"
 # Should also be EXEC string XS:
@@ -122,4 +127,5 @@ BC_LOCK='id' ./bincrypter <test.sh >t.sh
 set +e
 [[ "$(BC_BCL_TEST_FAIL=1 ./t.sh)" != "uid"* ]] && { echo "BC_LOCK did not get executed"; exit 255; }
 set -e
+echo '===COMPLETED==='
 :

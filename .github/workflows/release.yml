@@ -61,9 +61,6 @@ jobs:
 
       - name: perms
         run: |
-          which script
-          id
-          sudo id
           chmod +x bincrypter
           chmod +x run-tests.sh
 
