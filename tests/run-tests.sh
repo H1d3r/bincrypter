@@ -84,7 +84,7 @@ BC_PASSWORD="${TEST_PASSWORD}" ./t.sh
 echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 # Should fail because password is BAD:
 set +e
-PASSWORD="${TEST_PASSWORD}-BAD" ./t.sh 2>/dev/null && exit 254
+PASSWORD="${TEST_PASSWORD}-BAD" ./t.sh 2>/dev/null || exit 254
 set -e
 
 echo ">>> Test: Set password (by command line)"
@@ -94,7 +94,7 @@ PASSWORD="${TEST_PASSWORD}" ./t.sh
 echo "${TEST_PASSWORD}" | ./t.sh 2>/dev/null
 # Should fail because password is BAD:
 set +e
-echo "${TEST_PASSWORD}-BAD" | ./t.sh 2>/dev/null && exit 254
+echo "${TEST_PASSWORD}-BAD" | ./t.sh 2>/dev/null || exit 254
 set -e
 
 echo ">>> Test: Password by env (nested with BC_PASSWORD) & Double pipe"
@@ -127,5 +127,13 @@ BC_LOCK='id' ./bincrypter <test.sh >t.sh
 set +e
 [[ "$(BC_BCL_TEST_FAIL=1 ./t.sh)" != "uid"* ]] && { echo "BC_LOCK did not get executed"; exit 255; }
 set -e
+
+echo ">>> Test: BC_LOCK=\"\$(echo id| base64)\""
+BC_LOCK="$(echo id | base64 -w0)" ./bincrypter <test.sh >t.sh
+./t.sh 
+set +e
+[[ "$(BC_BCL_TEST_FAIL=1 ./t.sh)" != "uid"* ]] && { echo "BC_LOCK did not get executed"; exit 255; }
+set -e
+
 echo '===COMPLETED==='
 :

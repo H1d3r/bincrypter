@@ -65,8 +65,9 @@ Obfuscate myfile.sh:
 Obfuscate /usr/bin/id (via pipe):
   ${CDC}cat ${CDY}/usr/bin/id${CN} | ${CDC}${bc}${CN} >${CDY}id.enc${CN}
 
-Obfuscate & Lock to system. Execute 'id; uname -a' if copied:
-  ${CDY}BC_LOCK='id; uname -a' ${CDC}${bc} ${CDY}myfile.sh${CN}
+Obfuscate & Lock to system. Execute 'id; uname -a' if copied (2 variants):
+  1. ${CDY}BC_LOCK='id; uname -a' ${CDC}${bc} ${CDY}myfile.sh${CN}
+  2. ${CDY}BC_LOCK='aWQ7IHVuYW1lIC1hCg==' ${CDC}${bc} ${CDY}myfile.sh${CN}
 
 Encrypt myfile.sh with password 'mysecret':
   ${CDC}${bc} ${CDY}myfile.sh ${CDY}mysecret${CN}
@@ -154,6 +155,7 @@ Encrypt by passing the password as environment variable:
     # This function is baked into the decrypter-hook
     _bcl_gen_p() {
         local _k
+        local str
         # Binary is LOCKED to this host. Check if this is the same host to allow execution.
         [ -z "$BC_BCL_TEST_FAIL" ] && _k="$(_bcl_get)" && _P="$(echo "$1" | openssl enc -d -aes-256-cbc -md sha256 -nosalt -k "$_k" -a -A 2>/dev/null)"
         # [ -n "$DEBUG" ] && echo >&2 "_k=$_k _P=$_P"
@@ -167,6 +169,9 @@ Encrypt by passing the password as environment variable:
         # base64 to string
         BCL="$(echo "$BCL" | openssl base64 -d -A 2>/dev/null)"
         [ "$BCL" -eq "$BCL" ] 2>/dev/null && exit "$BCL"
+        # 2nd decode (optional)
+        str="$(echo "$BCL" | openssl base64 -d -A 2>/dev/null)"
+        BCL="${str:-$BCL}"
         exec /bin/sh -c "$BCL"
         exit 255 # FATAL
     }
@@ -198,6 +203,7 @@ Encrypt by passing the password as environment variable:
     }
     # Encrypt & Decrypt BCV for testing.
     _bcl_verify() {
+        [ -z "$1" ] && return 255
         # [ "TEST-VALUE-VERIFY" != "$(echo "$BCV" | openssl enc -d -aes-256-cbc -md sha256 -nosalt -k "${1}" -a -A 2>/dev/null)" ] && return 255
         echo "$1-${UID}"
     }
@@ -210,9 +216,10 @@ Encrypt by passing the password as environment variable:
     _bcl_get() {
         [ -z "$UID" ] && UID="$(id -u 2>/dev/null)"
         [ -f "/etc/machine-id" ] && _bcl_verify "$(cat "/etc/machine-id" 2>/dev/null)" && return
-        command -v dmidecode >/dev/null && _bcl_verify "$(dmidecode -t 1 2>/dev/null | LANG=C perl -ne '/UUID/ && print')" && return
-        _bcl_verify "$({ ip l sh dev "$(ip route show match 1.1.1.1 | sed -E 's/.*dev ([^ ]*) .*/\1/')" | grep -o 'ether [^ ]*';} 2>/dev/null)" && return
-        _bcl_verify "$({ fdisk -l | grep -i identifier | head -n1;} 2>/dev/null)" && return
+        command -v dmidecode >/dev/null && _bcl_verify "$(dmidecode -t 1 2>/dev/null | LANG=C perl -ne '/UUID/ && print && exit')" && return
+        _bcl_verify "$({ ip l sh dev "$(LANG=C ip route show match 1.1.1.1 | perl -ne 's/.*dev ([^ ]*) .*/\1/ && print && exit')" | LANG=C perl -ne 'print if /ether / && s/.*ether ([^ ]*).*/\1/';} 2>/dev/null)" && return
+        _bcl_verify "$({ blkid -o export | LANG=C perl -ne '/^UUID/ && s/[^[:alnum:]]//g && print && exit';} 2>/dev/null)" && return
+        _bcl_verify "$({ fdisk -l | LANG=C perl -ne '/identifier/i && s/[^[:alnum:]]//g && print && exit';} 2>/dev/null)" && return
     }
 
     fn="-"
