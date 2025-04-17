@@ -12,6 +12,17 @@ permissions:
   contents: write
 
 jobs:
+  Source2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: dist
+        run: |
+          id
+
+
+jobs:
   Source:
     runs-on: ubuntu-latest
     steps:
