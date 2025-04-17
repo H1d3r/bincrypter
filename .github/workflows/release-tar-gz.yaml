@@ -24,7 +24,7 @@ jobs:
 
       - name: Fetching LATEST
         run: |
-          curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter-${{ github.event.inputs.version }}
+          curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter-${{ github.event.inputs.version }}/
       
       - name: Creating TAR GZ
           tar cfz bincrypter-${{ github.event.inputs.version }}.tar.gz bincrypter-${{ github.event.inputs.version }}
