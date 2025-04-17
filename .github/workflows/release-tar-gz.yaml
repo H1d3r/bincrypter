@@ -34,7 +34,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: bincrypter-*.tar.gz
+          file: bincrypter-${{ github.event.inputs.version }}.tar.gz
           # overwrite: true
           # file_glob: true
           tag: v${{ github.event.inputs.version }}
