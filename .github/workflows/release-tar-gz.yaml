@@ -17,6 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Copying manpage
+        run: |
+          mkdir bincrypter-${{ github.event.inputs.version }}
+          cp man/bincrypter.1 bincrypter-${{ github.event.inputs.version }}/
+
       - name: dist
         run: |
           id
