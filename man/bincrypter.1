@@ -1,0 +1,91 @@
+\#.TH BINCRYPTER 1 "17 April 2025"
+.Dd April 17, 2025
+.Dt BINCRYPTER 1
+.Os
+
+.Sh NAME
+.Nm bincrypter
+.Nd Encrypt/Obfuscate executables or scripts.
+
+.Sh SYNOPSIS
+.Nm bincryper
+.Op -hlq
+.Op program
+.Op password
+
+.Sh DESCRIPTION
+.Nm
+is a privacy and copyright protection tool for executables and scripts.
+.Pp
+The
+.Nm
+command is used to compress and obfuscate a program, and if a password is provided, it will encrypt the program as well. The encrypted program will only run if the correct password is supplied, either via the environment variable or entered by the user upon execution of the program.
+.Pp
+The default mode is to compress and obfuscate only:
+.in +0.5i
+$ bincrypter myscript.sh
+.in -0.5i
+.Pp
+Encryption is used if a password is provided:
+.in +0.5i
+$ bincrypter myscript.sh MySecret
+.in -0.5i
+.Pp
+
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h
+Display help information.
+.It Fl l
+Lock the program to the target system & user id (UID). Execution will fail if the program is moved to another system or executed under a different UID (by a different user).
+.It Fl q
+Quiet. Suppress all output.
+
+.Sh NOTES
+The program can be a file or "-" for stdin.
+
+.Sh ENVIRONMENT
+Various environment variables are used to control the behavior of
+.Nm .
+.Pp
+.Nm PASSWORD
+.in +.5i
+Password to encrypt/decrypt.
+.in -0.5i
+.Pp
+.Nm BC_PASSWORD
+.in +.5i
+Same as PASSWORD but BC_PASSWORD is exported and available to the callee. This can be used to run a program that has been encrypted twice, using two separate passwords. First with BC_PASSWORD and then with PASSWORD.
+.in -0.5i
+.Pp
+.Nm BC_PADDING
+.in +.5i
+Add 0..n% of random padding to the original program. This is to foil attempts to identify the size of the original program. The default is 25. Use BC_PADDING=0 to disable.
+.in -0.5i
+.Pp
+.Nm BC_QUIET
+.in +.5i
+See -q
+.in -0.5i
+.Pp
+.Nm BC_LOCK
+.in +.5i
+See -l. The default is BC_LOCK=0. The program will refuse to run if executed on a different system or with a different UID. Instead, the program will terminate with the numerical value of BC_LOCK, or if set to a string, execute the string instead (e.g. BC_LOCK="echo 'LOCKED. You are not permitted to run this program.'; exit 255"). 
+.in -0.5i
+
+.Sh EXAMPLES
+See -h for examples.
+
+.Sh SECURITY
+The encryption is as strong as the chosen password. Chose wisely.
+.Sh SEE ALSO
+.Xr upx(1)
+
+.Sh BUGS
+Efforts have been made to have
+.Nm
+"do the right thing" in all its various modes. If you believe that it is doing the wrong thing under whatever circumstances, please notify me and tell me how you think it should behave.
+
+.Sh AUTHOR
+.Nm
+was written by the fine people at https://thc.org. The latest version is available at https://github.com/hackerschoice/bincrypter.

@@ -1,0 +1,40 @@
+name: TAR GZ package
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version'
+        default: '1.1'
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  Source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Copying manpage
+        run: |
+          mkdir bincrypter-${{ github.event.inputs.version }}
+          cp man/bincrypter.1 bincrypter-${{ github.event.inputs.version }}/
+
+      - name: Fetching LATEST
+        run: |
+          curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter-${{ github.event.inputs.version }}
+      
+      - name: Creating TAR GZ
+          tar cfz bincrypter-${{ github.event.inputs.version }}.tar.gz bincrypter-${{ github.event.inputs.version }}
+
+      - name: Uploading TAR GZ
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bincrypter-*.tar.gz
+          # overwrite: true
+          # file_glob: true
+          tag: v${{ github.event.inputs.version }}
