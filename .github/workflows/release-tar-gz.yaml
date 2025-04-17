@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  Source2:
+  Source:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -24,7 +24,8 @@ jobs:
 
       - name: Fetching LATEST
         run: |
-          curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter-${{ github.event.inputs.version }}/
+          curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter-${{ github.event.inputs.version }}/bincrypter
+  
       - name: Creating TAR GZ
         run: |
           tar cfz bincrypter-${{ github.event.inputs.version }}.tar.gz bincrypter-${{ github.event.inputs.version }}
@@ -37,4 +38,3 @@ jobs:
           # overwrite: true
           # file_glob: true
           tag: v${{ github.event.inputs.version }}
-
