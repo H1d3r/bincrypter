@@ -1,3 +1,4 @@
+# Privacy and copyright protection for your programs
 
 ## A Linux Binary Runtime Crypter - in BASH!
 
