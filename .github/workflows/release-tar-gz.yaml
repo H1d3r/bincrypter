@@ -22,7 +22,6 @@ jobs:
           id
 
 
-jobs:
   Source:
     runs-on: ubuntu-latest
     steps:
