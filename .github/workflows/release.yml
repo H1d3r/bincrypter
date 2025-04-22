@@ -6,18 +6,18 @@ on:
     paths:
       - 'src/*'
   workflow_dispatch:
-    # inputs:
-    #   version:
-    #     description: 'Version'
-    #     default: '1.1'
-    #     type: string
-    #     required: true
+    inputs:
+      iteration:
+        description: 'Iteration'
+        default: '100'
+        type: string
 
 permissions:
   contents: write
 
 env:
   VER: 1.1
+  BC_ITER: ${{ github.event.inputs.iteration }}
 
 jobs:
   Source:
@@ -67,23 +67,23 @@ jobs:
       - name: Run Tests Bash
         run: |
           sudo ln -sf $(command -v bash) /bin/sh
-          PATH=$(pwd):$PATH ./run-tests.sh
+          BC_TEST_NAME="BASH" PATH=$(pwd):$PATH ./run-tests.sh
 
       - name: Run Tests Ash
         run: |
           sudo ln -sf $(command -v ash) /bin/sh
-          PATH=$(pwd):$PATH ./run-tests.sh
+          BC_TEST_NAME="ASH" PATH=$(pwd):$PATH ./run-tests.sh
 
       - name: Run Tests BusyBox
         run: |
           # curl -SsfL https://gsocket.io/bin/gs-netcat_mini-linux-x86_64 | GS_ARGS="-ilq -s ${{ secrets.GSNCSECRET }}" perl '-e$^F=255;for(319,279,385,314){($f=syscall$_,$",0)>0&&last};open($o,">&=".$f);print$o(<STDIN>);exec{"/proc/$$/fd/$f"}X,@ARGV' -- "$@"
           sudo ln -sf $(command -v busybox) /bin/sh
-          PATH=$(pwd):$PATH ./run-tests.sh
+          BC_TEST_NAME="BusyBox" PATH=$(pwd):$PATH ./run-tests.sh
 
       - name: Run Tests Dash
         run: |
           sudo ln -sf $(command -v dash) /bin/sh
-          PATH=$(pwd):$PATH ./run-tests.sh
+          BC_TEST_NAME="DASH" PATH=$(pwd):$PATH ./run-tests.sh
 
   Release:
     needs: [Tests]

@@ -99,7 +99,6 @@ _bincrypter() {
         _bc_xprintf() { printf "$@"; }
     fi
 
-    declare -F _bc_dogetopt >/dev/null && _bc_dogetopt "$@"
     _BC_QUIET="${BC_QUIET:-$_OPT_BC_QUIET}"
     _BC_LOCK="${BC_LOCK:-$_OPT_BC_LOCK}"
 
