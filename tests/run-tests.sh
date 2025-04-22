@@ -135,5 +135,11 @@ set +e
 [[ "$(BC_BCL_TEST_FAIL=1 ./t.sh)" != "uid"* ]] && { echo "BC_LOCK did not get executed"; exit 255; }
 set -e
 
+echo ">>> Test: Fallthrough STDIN/STDOUT if command not found"
+:>t.sh
+BC_BCL_TEST_FAIL_COMMAND="openssl" ./bincrypter <test.sh >t.sh 2>/dev/null
+cmp --silent -- test.sh t.sh || exit 255
+# ./t.sh
+
 echo '===COMPLETED==='
 :

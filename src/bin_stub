@@ -27,27 +27,10 @@ CN="\033[0m"     # none
 CF="\033[2m"     # faint
 }
 
-# %%BEGIN_BC_FUNC%%
-_bincrypter() {
-    local str ifn fn s c DATA P _P S HOOK _PASSWORD
-    local USE_PERL=1
-    local _BC_QUIET
-    local _BC_LOCK
-
-    # vampiredaddy wants this to work if dd + tr are not available:
-    if [ -n "$USE_PERL" ]; then
-        _bc_xdd() { [ -z "$DEBUG" ] && LANG=C perl -e 'read(STDIN,$_, '"$1"'); print;'; }
-        _bc_xtr() { LANG=C perl -pe 's/['"${1}${2}"']//g;'; }
-        _bc_xprintf() { LANG=C perl -e "print(\"$1\")"; }
-    else
-        _bc_xdd() { [ -z "$DEBUG" ] && dd bs="$1" count=1 2>/dev/null;}
-        _bc_xtr() { tr -d"${1:+c}" "${2}";}
-        _bc_xprintf() { printf "$@"; }
-    fi
-
-    _bc_usage() {
-        local bc="${0##*/}"
-        echo -en >&2 "\
+# %%BEGIN_BC_ALL%%
+_bc_usage() {
+    local bc="${0##*/}"
+    echo -en >&2 "\
 ${CM}Encrypt or obfuscate a binary or script.${CDM}
 
 ${CDG}Usage:${CN}
@@ -84,9 +67,10 @@ Encrypt myfile.sh with password 'mysecret':
 Encrypt by passing the password as environment variable:
   ${CDY}PASSWORD=mysecret ${CDC}${bc} ${CDY}myfile.sh${CN}
 "
-        exit 0
-    } # EO _bc_usage
+    exit 0
+} # EO _bc_usage
 
+_bc_dogetopt() {
     [ -t 0 ] && [ $# -eq 0 ] && _bc_usage
     while getopts "hql" opt; do
         case $opt in
@@ -97,6 +81,26 @@ Encrypt by passing the password as environment variable:
         esac
     done
     shift $((OPTIND - 1))
+}
+
+# %%BEGIN_BC_FUNC%%
+_bincrypter() {
+    local str ifn fn s c DATA P _P S HOOK _PASSWORD
+    local USE_PERL=1
+    local _BC_QUIET
+    local _BC_LOCK
+
+    # vampiredaddy wants this to work if dd + tr are not available:
+    if [ -n "$USE_PERL" ]; then
+        _bc_xdd() { [ -z "$DEBUG" ] && LANG=C perl -e 'read(STDIN,$_, '"$1"'); print;'; }
+        _bc_xtr() { LANG=C perl -pe 's/['"${1}${2}"']//g;'; }
+        _bc_xprintf() { LANG=C perl -e "print(\"$1\")"; }
+    else
+        _bc_xdd() { [ -z "$DEBUG" ] && dd bs="$1" count=1 2>/dev/null;}
+        _bc_xtr() { tr -d"${1:+c}" "${2}";}
+        _bc_xprintf() { printf "$@"; }
+    fi
+
     _BC_QUIET="${BC_QUIET:-$_OPT_BC_QUIET}"
     _BC_LOCK="${BC_LOCK:-$_OPT_BC_LOCK}"
 
@@ -235,6 +239,7 @@ Encrypt by passing the password as environment variable:
     [ "$#" -gt 0 ] && fn="$1" # $1 might be '-'
     [ "$fn" != "-" ] && [ ! -f "$fn" ] && _bc_err "File not found: $fn"
 
+    [ -n "$BC_BCL_TEST_FAIL_COMMAND" ] && _bc_err "$BC_BCL_TEST_FAIL_COMMAND is required"
     command -v openssl >/dev/null || _bc_err "openssl is required"
     command -v perl >/dev/null || _bc_err "perl is required"
     [ ! -c "/dev/urandom" ] && _bc_err "/dev/urandom is required"
@@ -356,10 +361,14 @@ Encrypt by passing the password as environment variable:
 (return 0 2>/dev/null) && _sourced=1
 [ -z "$_sourced" ] && {
     # Execute if not sourced:
+    _bc_dogetopt "$@"
     _bincrypter "$@"
     exit
 }
 
 ### HERE: sourced
-bincrypter() { _bincrypter "$@"; }
+bincrypter() {
+    _bc_dogetopt "$@"
+    _bincrypter "$@"
+}
 unset _sourced

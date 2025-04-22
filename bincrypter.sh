@@ -1,5 +1,12 @@
 #! /usr/bin/env bash
 
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 2 of
+# the License, or (at your option) any later version. You should
+# have received a copy of the GNU General Public License along with
+# this program. If not, see https://www.gnu.org/licenses/gpl.html
+#
 # curl -SsfL https://github.com/hackerschoice/bincrypter/releases/latest/download/bincrypter -o bincrypter
 # chmod +x bincrypter
 # ./bincrypter -h
@@ -18,27 +25,10 @@ CN="\033[0m"     # none
 CF="\033[2m"     # faint
 }
 
-# %%BEGIN_BC_FUNC%%
-_bincrypter() {
-    local str ifn fn s c DATA P _P S HOOK _PASSWORD
-    local USE_PERL=1
-    local _BC_QUIET
-    local _BC_LOCK
-
-    # vampiredaddy wants this to work if dd + tr are not available:
-    if [ -n "$USE_PERL" ]; then
-        _bc_xdd() { [ -z "$DEBUG" ] && LANG=C perl -e 'read(STDIN,$_, '"$1"'); print;'; }
-        _bc_xtr() { LANG=C perl -pe 's/['"${1}${2}"']//g;'; }
-        _bc_xprintf() { LANG=C perl -e "print(\"$1\")"; }
-    else
-        _bc_xdd() { [ -z "$DEBUG" ] && dd bs="$1" count=1 2>/dev/null;}
-        _bc_xtr() { tr -d"${1:+c}" "${2}";}
-        _bc_xprintf() { printf "$@"; }
-    fi
-
-    _bc_usage() {
-        local bc="${0##*/}"
-        echo -en >&2 "\
+# %%BEGIN_BC_ALL%%
+_bc_usage() {
+    local bc="${0##*/}"
+    echo -en >&2 "\
 ${CM}Encrypt or obfuscate a binary or script.${CDM}
 
 ${CDG}Usage:${CN}
@@ -49,7 +39,7 @@ ${CDC}${bc} ${CDY}[-hql] [file] [password]${CN}
         On failure, do not execute the encrypted binary. Instead:
         1. exit with 0 if BC_LOCK is not set. [default]
         2. exit with BC_LOCK if set to a numerical value.
-        3. Execute BC_LOCK.
+        3. Execute BC_LOCK. (can be a base64 encoded strings).
 
 ${CDG}Environment variables (optional):${CN}
 ${CDY}PASSWORD=${CN}     Password to encrypt/decrypt.
@@ -75,9 +65,10 @@ Encrypt myfile.sh with password 'mysecret':
 Encrypt by passing the password as environment variable:
   ${CDY}PASSWORD=mysecret ${CDC}${bc} ${CDY}myfile.sh${CN}
 "
-        exit 0
-    } # EO _bc_usage
+    exit 0
+} # EO _bc_usage
 
+_bc_dogetopt() {
     [ -t 0 ] && [ $# -eq 0 ] && _bc_usage
     while getopts "hql" opt; do
         case $opt in
@@ -88,6 +79,27 @@ Encrypt by passing the password as environment variable:
         esac
     done
     shift $((OPTIND - 1))
+}
+
+# %%BEGIN_BC_FUNC%%
+_bincrypter() {
+    local str ifn fn s c DATA P _P S HOOK _PASSWORD
+    local USE_PERL=1
+    local _BC_QUIET
+    local _BC_LOCK
+
+    # vampiredaddy wants this to work if dd + tr are not available:
+    if [ -n "$USE_PERL" ]; then
+        _bc_xdd() { [ -z "$DEBUG" ] && LANG=C perl -e 'read(STDIN,$_, '"$1"'); print;'; }
+        _bc_xtr() { LANG=C perl -pe 's/['"${1}${2}"']//g;'; }
+        _bc_xprintf() { LANG=C perl -e "print(\"$1\")"; }
+    else
+        _bc_xdd() { [ -z "$DEBUG" ] && dd bs="$1" count=1 2>/dev/null;}
+        _bc_xtr() { tr -d"${1:+c}" "${2}";}
+        _bc_xprintf() { printf "$@"; }
+    fi
+
+    declare -F _bc_dogetopt >/dev/null && _bc_dogetopt "$@"
     _BC_QUIET="${BC_QUIET:-$_OPT_BC_QUIET}"
     _BC_LOCK="${BC_LOCK:-$_OPT_BC_LOCK}"
 
@@ -226,6 +238,7 @@ Encrypt by passing the password as environment variable:
     [ "$#" -gt 0 ] && fn="$1" # $1 might be '-'
     [ "$fn" != "-" ] && [ ! -f "$fn" ] && _bc_err "File not found: $fn"
 
+    [ -n "$BC_BCL_TEST_FAIL_COMMAND" ] && _bc_err "$BC_BCL_TEST_FAIL_COMMAND is required"
     command -v openssl >/dev/null || _bc_err "openssl is required"
     command -v perl >/dev/null || _bc_err "perl is required"
     [ ! -c "/dev/urandom" ] && _bc_err "/dev/urandom is required"
@@ -347,10 +360,14 @@ Encrypt by passing the password as environment variable:
 (return 0 2>/dev/null) && _sourced=1
 [ -z "$_sourced" ] && {
     # Execute if not sourced:
+    _bc_dogetopt "$@"
     _bincrypter "$@"
     exit
 }
 
 ### HERE: sourced
-bincrypter() { _bincrypter "$@"; }
+bincrypter() {
+    _bc_dogetopt "$@"
+    _bincrypter "$@"
+}
 unset _sourced
