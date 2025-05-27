@@ -153,7 +153,9 @@ _bincrypter() {
             s=$((1 + RANDOM % 4))
             str+=${h:0:$s}
             if [ $((RANDOM % 2)) -eq 0 ]; then
-                str+='`#'$'\b''`' #backspace
+                str+='`! :&&'$'\b''#`' #backspace
+                # Android's fake-bourne shell has problems with this line:
+                # str+='`#'$'\b''`' #backspace
             else
                 str+='`:||'$'\a''`' #alert/bell
             fi
