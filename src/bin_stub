@@ -114,9 +114,9 @@ _bincrypter() {
         # => We rather have a non-obfuscated binary than NONE.
         [ "$fn" = "-" ] && {
             cat    # Pass through
-            exit 0 # Make pipe succeed
+            return 0 # Make pipe succeed
         }
-        exit 255
+        return 255
     }
     # Obfuscate a string with non-printable characters at random intervals.
     # Input must not contain \ (or sh gets confused)
@@ -183,6 +183,7 @@ _bincrypter() {
         }
         # base64 to string
         BCL="$(echo "$BCL" | openssl base64 -d -A 2>/dev/null)"
+        # Check if BCL is a number and exit with that number.
         [ "$BCL" -eq "$BCL" ] 2>/dev/null && exit "$BCL"
         # 2nd decode (optional)
         str="$(echo "$BCL" | openssl base64 -d -A 2>/dev/null)"
@@ -244,6 +245,7 @@ _bincrypter() {
     [ -n "$BC_BCL_TEST_FAIL_COMMAND" ] && _bc_err "$BC_BCL_TEST_FAIL_COMMAND is required"
     command -v openssl >/dev/null || _bc_err "openssl is required"
     command -v perl >/dev/null || _bc_err "perl is required"
+    command -v gzip >/dev/null || _bc_err "gzip is required"
     [ ! -c "/dev/urandom" ] && _bc_err "/dev/urandom is required"
 
     # Auto-generate password if not provided
@@ -289,7 +291,7 @@ _bincrypter() {
     # Bash strings are not binary safe. Instead, store the binary as base64 in memory:
     ifn="$fn"
     [ "$fn" = "-" ] && ifn="/dev/stdin"
-    DATA="$(gzip <"$ifn" | openssl base64)" || exit
+    DATA="$(gzip <"$ifn" | openssl base64)" || return 255
 
     ## Add size of random padding to script (up to roughly 25% of the file size)).
     [ "$BC_PADDING" != "0" ] && {
@@ -355,6 +357,7 @@ _bincrypter() {
     # [ -z "$_BC_QUIET" ] && [ -n "$_BC_LOCK" ] && echo -e >&2 "${CDY}PASSWORD=${CF}${_P}${CN}"
     unset -f _bc_usage _bcl_get _bcl_verify _bcl_verify_dec _bc_err _bc_ob64 _bc_obbell _bc_xdd _bc_xtr _bc_xprintf
     [ -z "$_BC_QUIET" ] && echo -e >&2 "${CDG}Done${CN}"
+    return 0
 }
 # %%END_BC_FUNC%%
 
