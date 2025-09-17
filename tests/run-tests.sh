@@ -10,7 +10,7 @@ cat >test.sh <<'EOF'
 # Check for leakage:
 # set | grep BC | grep -v BC_PASSWORD | grep -v BC_ITER | grep -Fqm1 BC && exit 255
 BC_TEST=1
-echo "INTERNAL BC_TEST=$BC_TEST"
+echo "$$ INTERNAL BC_TEST=$BC_TEST"
 [ $# -ne 0 ] && exit 244
 :
 EOF

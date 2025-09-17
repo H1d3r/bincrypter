@@ -238,13 +238,14 @@ _bincrypter() {
 
     fn="-"
     [ "$#" -gt 0 ] && fn="$1" # $1 might be '-'
-    [ "$fn" != "-" ] && [ ! -f "$fn" ] && _bc_err "File not found: $fn"
+    [ "$fn" != "-" ] && [ ! -f "$fn" ] && { _bc_err "File not found: $fn"; return; }
+    [ "$fn" != "-" ] && [ ! -r "$fn" ] && { _bc_err "File not readable: $fn"; return; }
 
-    [ -n "$BC_BCL_TEST_FAIL_COMMAND" ] && _bc_err "$BC_BCL_TEST_FAIL_COMMAND is required"
-    command -v openssl >/dev/null || _bc_err "openssl is required"
-    command -v perl >/dev/null || _bc_err "perl is required"
-    command -v gzip >/dev/null || _bc_err "gzip is required"
-    [ ! -c "/dev/urandom" ] && _bc_err "/dev/urandom is required"
+    [ -n "$BC_BCL_TEST_FAIL_COMMAND" ] && { _bc_err "$BC_BCL_TEST_FAIL_COMMAND is required (fn=$fn)"; return; }
+    command -v openssl >/dev/null || { _bc_err "openssl is required"; return; }
+    command -v perl >/dev/null || { _bc_err "perl is required"; return; }
+    command -v gzip >/dev/null || { _bc_err "gzip is required"; return; }
+    [ ! -c "/dev/urandom" ] && { _bc_err "/dev/urandom is required"; return; }
 
     # Auto-generate password if not provided
     _PASSWORD="${2:-${PASSWORD:-$BC_PASSWORD}}"
@@ -252,7 +253,7 @@ _bincrypter() {
     [ -n "$_BC_LOCK" ] && [ -n "$_PASSWORD" ] && { echo -e >&2 "${CDR}WARN${CN}: ${CDY}PASSWORD${CN} is ignored when using ${CDY}BC_LOCK${CN}."; unset _PASSWORD; }
     [ -z "$_PASSWORD" ] && P="$(DEBUG='' _bc_xdd 32 </dev/urandom | openssl base64 -A | _bc_xtr '^' '[:alnum:]' | DEBUG='' _bc_xdd 16)"
     _P="${_PASSWORD:-$P}"
-    [ -z "$_P" ] && _bc_err "No ${CDC}PASSWORD=<password>${CN} provided and failed to generate one."
+    [ -z "$_P" ] && { _bc_err "No ${CDC}PASSWORD=<password>${CN} provided and failed to generate one."; return; }
     unset _PASSWORD
     # [ -n "$DEBUG" ] && echo >&2 "generated P=${P}"
 
@@ -313,7 +314,7 @@ _bincrypter() {
 
     [ -z "$_BC_QUIET" ] && [ "$fn" != "-" ] && { 
         s="$(stat -c %s "$fn")"
-        [ "$s" -gt 0 ] || _bc_err "Empty file: $fn"
+        [ "$s" -gt 0 ] || { _bc_err "Empty file: $fn"; return; }
     }
 
     [ "$fn" = "-" ] && fn="/dev/stdout"
