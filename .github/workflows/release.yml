@@ -7,6 +7,10 @@ on:
       - 'src/*'
   workflow_dispatch:
     inputs:
+      ver:
+        description: 'Version'
+        required: true
+        default: '1.2'
       iteration:
         description: 'Iteration'
         default: '100'
@@ -16,7 +20,6 @@ permissions:
   contents: write
 
 env:
-  VER: 1.1
   BC_ITER: ${{ github.event.inputs.iteration }}
 
 jobs:
@@ -100,5 +103,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: bincrypter
           overwrite: true
-          tag: v${{ env.VER }}
+          tag: v${{ github.event.inputs.ver }}
     
