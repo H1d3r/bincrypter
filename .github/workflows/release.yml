@@ -10,7 +10,7 @@ on:
       ver:
         description: 'Version'
         required: true
-        default: '1.2'
+        default: '1.3b'
       iteration:
         description: 'Iteration'
         default: '100'
