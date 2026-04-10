@@ -10,7 +10,7 @@ on:
       ver:
         description: 'Version'
         required: true
-        default: '1.3b'
+        default: '1.4'
       iteration:
         description: 'Iteration'
         default: '100'
@@ -21,6 +21,7 @@ permissions:
 
 env:
   BC_ITER: ${{ github.event.inputs.iteration }}
+  VER: ${{ github.event.inputs.ver || '1.4' }}
 
 jobs:
   Source:
@@ -103,5 +104,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: bincrypter
           overwrite: true
-          tag: v${{ github.event.inputs.ver }}
+          tag: v${{ env.VER }}
     
