@@ -4,7 +4,7 @@ on:
     inputs:
       version:
         description: 'Version'
-        default: '1.2'
+        default: '1.4'
         type: string
         required: true
 
